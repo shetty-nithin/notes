@@ -1,0 +1,70 @@
+---------MONO_REPO IN NEXT.JS-------------
+
+1. Why mono repos?
+    To share the components, code across various apps.
+2. 
+    * We can share the components without using the mono repos.
+      That is by deploying the component to NPM registry, so that others can install it from npm.
+      But this has one draw back. That is we need to deploy the .js and d.ts to NPM registry.
+    * Most of the time we dont want an end package to bundle down to .js and d.ts files. We just need to share the .ts file.
+      In this case we can make use of the mono repos. The project using this file can take of bundling down to .js.
+
+3. Creating a Mono_Repo
+    * npx create-turbo@latest
+    * folder Structure
+        > apps
+            > docs
+            > web
+                > .next
+                > app
+                    > page.tsx
+                        import { Button, Header } from "ui"
+                        export default function Page() {
+                            return (
+                                <>
+                                    <Header text="Web"/>
+                                    <Button />
+                                </>
+                            )
+                        }
+                > next.config.js
+                    module.exports = {
+                        reactStrictMode: true,
+                        transpilePackages: ["ui"],    // because "ui" is not compiled in the "packages" folder.
+                    };
+        > packages
+            > eslint-config.custom
+            > tsconfig
+            > ui
+                > Button.tsx
+                > Header.tsx
+                > Index.tsx
+                > package.json
+                > tsconfig.json
+    
+            # in the ui/package.json file we need to mention the following 2 lines
+                "main": "./index.tsx"
+                "types": "./index.tsx"
+    
+    * Inside the apps run the following command     
+        npx create-next-app@latest
+    
+    * Now the folder structure will be
+        > apps
+            > client
+                > src
+                > package.json
+                    "dependencies": {
+                        ....
+                        "ui": "*"
+                    }
+                > next.config.js
+                    module.exports = {
+                        reactStrictMode: true,
+                        transpilePackages: ["ui"],    // because "ui" is not compiled in the "packages" folder.
+                    };
+            > docs
+            > web
+    
+    * Whenever we add a new package to package.json, we need to go to the root folder and run "npm install" command. 
+
