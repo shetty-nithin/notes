@@ -1,0 +1,49 @@
+----------------OPEN API SPEC--------------------
+    The OpenAPI specifications (OAS) defines a standard, language-agnostic interfaces to HTTP APIs
+which allows both humans and computers to discover and understand the capabilities and service
+without access to source code, documentation or through netword traffic infection. 
+    When porperty defined, a consumer can understand and interact with the remote service with a
+minimal amount of implementation logic.
+
+    An OpenAPI definition can then be used by documentation generation tools to display the API,
+code generation tools to generate servers and clients in various programming languages, testing
+tools and many other use cases.
+
+How to create for an express application?
+By creating 
+    i. openapi-spec.yaml OR
+    ii. openapi-spec.json
+
+
+tsc --experimentalDecorator
+
+Generating OpenAPI files automatically for the HTTP backends.
+We can use multiple other libraries. Here we are using TSOA library.
+This library expects each route to be certain format.
+
+Ex: src/todo route
+project-name 
+    - src
+        - server.ts
+        - app.ts
+        - todo
+            - todo.ts
+            - todoService.ts
+            - todoController.ts
+
+To run: 
+    mkdir -p build
+    npm run tsoa routesa --> to create the express routes
+    npm run tsoa spec  
+        --> to create the OpenAPI spec file, which creates the swagger.json file.
+            This is the OpenAPI file.
+
+Use of this Swagger.json file:
+    1. We can use this swagger.json file to create the route collection the postman automatically.
+    2. We can create a swagger-ui page (like postman) using "swagger-ui-express".
+    3. We can also create "node-client". This node-client provides the { DefaultService }.
+       We can use this DefaultService in the react frontend to deal with the backend routes 
+       instead of using fetch/axios.
+       ex: DefaultService.getTodo("id");
+
+https://tsoa-community.github.io/docs/getting-started.html
