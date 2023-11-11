@@ -33,6 +33,7 @@
                         transpilePackages: ["ui"],    // because "ui" is not compiled in the "packages" folder.
                     };
         > packages
+            > common                          // user defined
             > eslint-config.custom
             > tsconfig
             > ui
@@ -68,3 +69,66 @@
     
     * Whenever we add a new package to package.json, we need to go to the root folder and run "npm install" command. 
 
+
+
+----------Mono Repo Deployement----------------
+
+Creating mono repo from React + Next.js + Express.js app in the same TURBO repo and deploying the mono repos
+using github CI/CD.
+
+1. npx create-turbo@latest
+2. Make 'apps' folder completely empty. (Remove the 'web' and 'docs' folder from the 'apps' folder.)
+3. Create 
+    - client-next app using "npx create-next-app@lates"
+    - client-react app using "npm create vite@latest" and 
+    - express-backend (mkdir express-backend) folder inside the 'apps' folder.
+3. cd express-backend
+    - npm init -y
+    - tsc --init
+4. cd packages
+    - Create an empty 'common' package and add 'ZOD' in there.
+5. Bring 'ui' and 'common' into the main apps.
+    Next app:
+    - In the client-next/package.json add the following configs.
+        dependencies: {
+            "ui": "*",
+            "common": "*"
+        }
+    - In the client-next/next.config.json add the following configs.
+        const nextConfig = {
+            reactRestrictMode: true,
+            transpilePackages: ["ui", "common"]
+        }
+    React app:
+    - In client-react/tsconfig.json add the following configs.
+        "paths": {
+            "ui": [
+                "../../packages/ui/src/index.ts"
+            ],
+        }
+    Express app:
+    - In express also we can add the configs as in the react app, but it will throw some error.
+      Thats why we use esbuild in the express-backend/package.json.
+6. Deploying all the apps (3 in this case) when the changes is made only in 1 or a few apps is not 
+   effecient. Therefore we create a 'deploy.sh' file in all the apps. By doing this we can deploy/restart
+   a specific app when the ec2 machine calls. (deploy.sh file contains the automation of deployment)
+7. In the root package.json, add the following configs.
+    "start:react": "cd apps/client-react/dist && serve -p 3001",
+    "start:next": "cd apps/cleint-next && npm run start",
+    "start:express": "cd apps/express-backend && node dist/index.js"
+
+
+----------CI/CD Workflow--------------
+Steps:
+1. Create a ec2 server
+2. Download cert file from ec2 dashboard
+3. ssh into the server
+4. Install node, npm, yarn
+5. Install nginx
+6. Install pm2
+7. Install certbot
+8. Copy over nginx file
+9. Install certificates
+10. Clone the repo
+11. Yarn install
+12. Run all the 3 pm2 jobs

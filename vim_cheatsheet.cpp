@@ -118,5 +118,5 @@ Space       - Menu (Key bindings)
 Space + e   - Toggle the explorer 
 Ctrl + h    - Cursor in the Explorer
 Ctrl + l    - Cursor in the code.
-
+ctrl + \    - Toggle between the Terminal and the Buffer
 */
