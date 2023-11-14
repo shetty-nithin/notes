@@ -7,10 +7,42 @@
       That is by deploying the component to NPM registry, so that others can install it from npm.
       But this has one draw back. That is we need to deploy the .js and d.ts to NPM registry.
     * Most of the time we dont want an end package to bundle down to .js and d.ts files. We just need to share the .ts file.
-      In this case we can make use of the mono repos. The project using this file can take of bundling down to .js.
+      In this case we can make use of the mono repos. The project using this file can take care of bundling down to .js.
 
-3. Creating a Mono_Repo
+3. Creating a End to End Mono_Repo
     * npx create-turbo@latest
+            ------------To create a fresh monorepo-------------
+            [
+                * Delete both docs & web inside "apps"
+                * Create a next app: npx create-next-app@latest
+                * Create a react app: npm create vite@latest & npm install
+                * Create a express backend server: mkdir express-backend
+                      - cd express-backend
+                      - npm init -y 
+                      - tsc --init
+                      - Create src folder
+                      - configure the tsconfig.json
+                * cd packages & mkdir common
+                      - npm init -y
+                      - tsc --init
+                      - configure the tsconfig.json
+                * Bring packages(ui and common) to the main apps ("Dont forget to npm install from the root folder everytime new packages is imported:")
+                      Next:
+                        - add in the package.json file (ex: "ui": "*")
+                        - add in 'transpilePackages: ["ui"]' in the next.config.js file in case of next app
+                      React:
+                        - but in case of react app, there will not be any next.config.js file, therefore need to add the following config in the tsconfig.json file  
+                                "path": {
+                                    "ui": [
+                                      "../../packages/ui/src/index.ts"
+                                    ]
+                                }
+                      Backend:
+                        - use "esbuild" for bundling the backend application. Ex: "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js"
+            ]
+    * Project will be created with 2 next.js app namely docs and web
+    * npm install at the root will install all the dependencies and the basic app is ready:
+    * npm run dev to run the basic web app
     * folder Structure
         > apps
             > docs
@@ -47,7 +79,7 @@
                 "main": "./index.tsx"
                 "types": "./index.tsx"
     
-    * Inside the apps run the following command     
+    * Inside the "apps" run the following command     
         npx create-next-app@latest
     
     * Now the folder structure will be
@@ -82,43 +114,57 @@ using github CI/CD.
     - client-next app using "npx create-next-app@lates"
     - client-react app using "npm create vite@latest" and 
     - express-backend (mkdir express-backend) folder inside the 'apps' folder.
+        - cd express-backend
+        - npm init -y 
+        - tsc --init
+        - Create src folder
+        - configure the tsconfig.json
 3. cd express-backend
     - npm init -y
     - tsc --init
+    - configure the tsconfig.json
 4. cd packages
     - Create an empty 'common' package and add 'ZOD' in there.
 5. Bring 'ui' and 'common' into the main apps.
     Next app:
-    - In the client-next/package.json add the following configs.
-        dependencies: {
-            "ui": "*",
-            "common": "*"
-        }
-    - In the client-next/next.config.json add the following configs.
-        const nextConfig = {
-            reactRestrictMode: true,
-            transpilePackages: ["ui", "common"]
-        }
+      - In the client-next/package.json add the following configs.
+          dependencies: {
+              "ui": "*",
+              "common": "*"
+          }
+      - In the client-next/next.config.json add the following configs.
+          const nextConfig = {
+              reactRestrictMode: true,
+              transpilePackages: ["ui", "common"]
+          }
     React app:
-    - In client-react/tsconfig.json add the following configs.
-        "paths": {
-            "ui": [
-                "../../packages/ui/src/index.ts"
-            ],
-        }
+      - In client-react/tsconfig.json add the following configs.
+          "paths": {
+              "ui": [
+                  "../../packages/ui/src/index.ts"
+              ],
+          }
     Express app:
-    - In express also we can add the configs as in the react app, but it will throw some error.
-      Thats why we use esbuild in the express-backend/package.json.
+      - In express also we can add the configs as in the react app, but it will throw some error.
+        Thats why we use esbuild in the express-backend/package.json.
+      - use "esbuild" for bundling the backend application. Ex: "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js"
+
 6. Deploying all the apps (3 in this case) when the changes is made only in 1 or a few apps is not 
-   effecient. Therefore we create a 'deploy.sh' file in all the apps. By doing this we can deploy/restart
+   effecient. Therefore we create a 'deploy.sh' file in all the apps in the root folder. By doing this we can deploy/restart
    a specific app when the ec2 machine calls. (deploy.sh file contains the automation of deployment)
+        - deploy.sh for Next:
+                  
+        - deploy.sh for React:
+        - deploy.sh for Backend:
+          
 7. In the root package.json, add the following configs.
     "start:react": "cd apps/client-react/dist && serve -p 3001",
     "start:next": "cd apps/cleint-next && npm run start",
     "start:express": "cd apps/express-backend && node dist/index.js"
 
 
-----------CI/CD Workflow--------------
+-------------------CI/CD Workflow--------------
+
 Steps:
 1. Create a ec2 server
 2. Download cert file from ec2 dashboard

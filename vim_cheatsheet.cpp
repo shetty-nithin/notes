@@ -119,4 +119,13 @@ Space + e   - Toggle the explorer
 Ctrl + h    - Cursor in the Explorer
 Ctrl + l    - Cursor in the code.
 ctrl + \    - Toggle between the Terminal and the Buffer
+
+1. Open cmd prompt
+2. cd %appdata%
+3. cd local
+4. mkdir nvim
+5. cd nvim
+6. touch init.vim/init.lua
+7. nvim init.lua
+
 */
