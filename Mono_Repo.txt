@@ -153,9 +153,17 @@ using github CI/CD.
    effecient. Therefore we create a 'deploy.sh' file in all the apps in the root folder. By doing this we can deploy/restart
    a specific app when the ec2 machine calls. (deploy.sh file contains the automation of deployment)
         - deploy.sh for Next:
-                  
         - deploy.sh for React:
         - deploy.sh for Backend:
+            ex: 
+              #!/bin/bash
+              export PATH=$PATH:/home/ubuntu/.nvm/versions/node/v20.5.1/bin
+
+              cd home/ubuntu/end2endmonorepodemoproject
+              git pull origin master
+              npm build/yarn build
+              pm2 stop nextapp
+              pm2 start npm --name "nextapp" --run "start:nextapp"
           
 7. In the root package.json, add the following configs.
     "start:react": "cd apps/client-react/dist && serve -p 3001",
@@ -167,14 +175,134 @@ using github CI/CD.
 
 Steps:
 1. Create a ec2 server
-2. Download cert file from ec2 dashboard
-3. ssh into the server
-4. Install node, npm, yarn
-5. Install nginx
-6. Install pm2
-7. Install certbot
-8. Copy over nginx file
-9. Install certificates
-10. Clone the repo
-11. Yarn install
-12. Run all the 3 pm2 jobs
+      - create a key pair (to ssh into the server)
+      - All the ports are closed by default. To enable some of the port, follow the steps:
+        Security ->  Security Groups -> Inbounds rules -> Edit inbound rules = Add some ports
+2. Move the .pem/.cer file to the project folder
+3. SSH into the Server 
+    Run the following command: 
+      - ssh -i(i means input) "name_of_the_certificate" ubuntu@"Public IPv4 DNS"
+        ex: ssh -i monorepo-class.pem ubuntu@ec2-52-66-210-195.ap-south-1.compute.amazonaws.com
+
+              (
+                We will get an error. Select "Yes"
+                WARNING: Permanently added 'ec2-52-66-210-195.ap-south-1.compute.amazonaws.com' (ED25519) to the list of known hosts.
+                         Welcome to Ubuntu 22.04.3 LTS (GNU/Linux 6.2.0-1012-aws x86_64)
+                command to check the permission: ls -ltr "filename"
+              )
+      - pwd: to check the directory of the ubuntu machine
+
+      IF REQUIRED:
+      - Chang the permission of the file using the below command 
+          chmod 600 ./"filename"
+          ex: chmod 600 ./monorepo-class.pem
+
+4. Clone the code from the Github to the Ubuntu machine.
+      - Copy the HTTPS link. Not the SSH/GitHub CLI
+      - git clone https://github.com/shetty-nithin/monorepo_demo.git
+5. Install node, npm, yarn:
+    (Google: how to install node on ubuntu 20. DigitalOcean blog post)
+    - curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash => This bring NVM to the ubuntu machine
+    - We will get few commands after running the above command. Copy those and run again. The command looks like below.
+        (
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+          [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+        )
+    - nvm install node
+    - npm install globally as well as in the apps
+    - now the apps are up in the respective port.
+      
+6. Install pm2 : We dont want the server to go down whenever the laptop is shutdown. Thats why we are using the pm2 library
+7. By default the apps will be running on HTTP. And we need to append the PORT it is running on to access the website. 
+   To avoid this, 
+
+8. Whenever there is a change in the codebase, just pushing the latest code into the github is not enough, we have to SSH into
+   the ec2 server and deploy it manually as below.
+    - ssh into the machine
+    - cd in to the folder
+    - pull the latest code: git pull origin master
+    - stop the existing process: pm2 kill
+    - re-build the code: npm install & npm run build
+    - re start the pm2 process
+
+    Instead of all these manual work, we can create an automation for all these comands in a single file called "deploy.sh" 
+        deploy.sh:
+        export PATH=$PATH:/home/ubuntu/.nvm/versions/node/v20.5.1/bin
+
+        cd home/ubuntu/end2endmonorepodemoproject
+        git pull origin master
+        npm build
+        pm2 stop express
+        pm2 start npm --name "express" --run "start:express"
+
+    to run: source ./deploy.sh
+
+9. Whenever there is a change in the codebase, just pushing the latest code into the github is not enough. We have to SSH into the ec2 machine 
+   and run the command "source ./deploy.sh"
+
+   Instead of these manual steps, we can create an automation for these 2 command in a single file called "script-local.sh" in the local folder.
+   And we need to run this below command in the local machine
+        script-local.sh:
+        ssh -t -i "key-pair file name" ubuntu@"ec2 instance url" "sudo bash ~/deploy.sh" (add this file to the .gitignore file)
+
+10. Whenever there is a change in the codebase, just pushing the latest code into the github is not enough, we have to run the command mentioned in the
+    script-local.sh file.
+
+    Instead of these manual steps, we can create an automation for these command in the github itself. That is github/workflows/filename.yaml
+    NOTE: We need to create .github/workflows/filename.yaml in the root folder of the project (it can also be created from the github itself).
+        example:
+          name: Deploy 
+
+          on:
+            push:
+              branches:
+                - master                     # or any branch name
+
+          jobs:
+            deploy:
+              runs-on: ubuntu-latest
+
+              steps:
+              - name: Checkout code          # means cloning the code
+                uses: action/checkout@v20
+
+              - name: SSH and deploy
+                env: 
+                  SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+                run: |
+                  echo "$SSH_PRIVATE_KEY" > keyfile
+                  chmod 600 keyfile
+                  ssh -t -i keyfile ubuntu#ec2-url "sudo bash ~/deploy.sh"
+
+    But for this .yaml file to run, we need to either push the keypair file (ex: monorepo-class.pem) to the github(which is not recommended) or 
+    we can make use of the github secrets(Settings -> Secrets and Variables -> Actions).
+
+    When github runs this .yaml file which deals with SSH for the first time, it will throw and error saying "Host key verification failed".
+    That is SSH will ask for authentication, we have to enter "Yes/No" manually. By default this answer will be No, thats why github throws the above error.
+    To overcome this, follow the below steps:
+        - Run the following command: ssh-keyscan "ec2-url" >> known_host  (new file named known_host will be created)
+          (we need to run this command in the same directory where we run the git push command)
+        - git push origin master
+        - update the .yaml file as below (we are copy pasting the content from the local known_hosts file to ~/ssh/known_hosts in the ubuntu server)
+
+                    jobs:
+                      deploy:
+                        runs-on: ubuntu-latest
+
+                        steps:
+                        - name: Checkout code          # means cloning the code
+                          uses: action/checkout@v20
+
+                        - name: SSH and deploy
+                          env: 
+                            SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+                          run: |
+                            echo "$SSH_PRIVATE_KEY" > keyfile
+                            chmod 600 keyfile
+                            mkdir -p ~/.ssh 
+                            cp known_hosts ~/.ssh/known_hosts
+                            ssh -t -i keyfile ubuntu#ec2-url "sudo bash ~/deploy.sh"
+    
+    NOTE: Running this kind of .yaml file is called as "Continuous Integration(CI)". 
+    NOTE: And the whole process from code pushing to the githun and deploying on the ec2 instance is called as a "Continuous Deployment(CD)"
