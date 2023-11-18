@@ -214,8 +214,9 @@ Steps:
     - now the apps are up in the respective port.
       
 6. Install pm2 : We dont want the server to go down whenever the laptop is shutdown. Thats why we are using the pm2 library
+    - npm i -g pm2
 7. By default the apps will be running on HTTP. And we need to append the PORT it is running on to access the website. 
-   To avoid this, 
+   To avoid this,[PENDING...] 
 
 8. Whenever there is a change in the codebase, just pushing the latest code into the github is not enough, we have to SSH into
    the ec2 server and deploy it manually as below.
@@ -228,15 +229,18 @@ Steps:
 
     Instead of all these manual work, we can create an automation for all these comands in a single file called "deploy.sh" 
         deploy.sh:
+        #!/bin/bash (this is called shebang line)
         export PATH=$PATH:/home/ubuntu/.nvm/versions/node/v20.5.1/bin
 
-        cd home/ubuntu/end2endmonorepodemoproject
+        cd /home/ubuntu/end2endmonorepodemoproject
         git pull origin master
-        npm build
+        npm run build
         pm2 stop express
         pm2 start npm --name "express" --run "start:express"
 
     to run: source ./deploy.sh
+    Note: Make sure to give execute permissions to your script 
+          - chmod +x deploy.sh
 
 9. Whenever there is a change in the codebase, just pushing the latest code into the github is not enough. We have to SSH into the ec2 machine 
    and run the command "source ./deploy.sh"
@@ -291,8 +295,8 @@ Steps:
                         runs-on: ubuntu-latest
 
                         steps:
-                        - name: Checkout code          # means cloning the code
-                          uses: action/checkout@v20
+                        - name: Checkout code          
+                          uses: action/checkout@v20  # means cloning the code
 
                         - name: SSH and deploy
                           env: 
@@ -306,3 +310,128 @@ Steps:
     
     NOTE: Running this kind of .yaml file is called as "Continuous Integration(CI)". 
     NOTE: And the whole process from code pushing to the githun and deploying on the ec2 instance is called as a "Continuous Deployment(CD)"
+
+11. All the apps will be live when we run turbo repo. But the problem is we have to append the PORT to the ec2-url to the see the apps.
+    Ony PORT 80 and 443 are not required to append to the ec2-url. But we cannot run any apps on PORT 80/443. 
+    To solve this problem we have to make use of "Reverse Proxy". We can use NGNIX process which can do the reverse proxy.
+    
+    - Install ngnix: sudo apt-get install ngnix
+      It will immediately start running on PORT 80
+    - configuare the ngnix:
+          - go to /etc/ngnix//ngnix.conf using the command: sudo vim /etc/ngnix/ngnix.conf
+          - write the below code:
+              events {
+                  worker_connections 1024;
+              }
+
+              http {
+                  server {
+                      listen 80;
+                      server_name ec2-65-0-105-22.ap-south-1.compute.amazonaws.com;
+
+                      location / {
+                          proxy_pass http://localhost:3000;
+                          prxoy_http_version 1.1;
+                          proxy_set_header Upgrade $http_upgrade;
+                          proxy_set_header Connection 'upgrade';
+                          proxy_set_header Host $host;
+                          proxy_cache_bypass $http_upgrade;
+                      }
+                  }
+              }
+            
+          - restart the ngnix: sudo ngnix -s reload
+
+12. To make the website HTTPS.
+    - go to certbot.eff.org 
+    - select what is runnin gon port 80 and on what process.
+    - follow the installation steps given by the website based on the above selection
+          - SSH into the server
+          - install snapd (by default its present on the aws machine)
+          - install certbot: sudo snap install --classic certbot
+          - prepare the certbot command: sudo ln-s /snap/bin/certbot /usr/bin/certbot
+          - choose how to run certbot: sudo certbot --ngnix
+          - give email
+          - enter "Y"
+          - enter the websites which we want us to create the certificates for: 1,2,3
+
+
+
+
+
+
+
+
+
+Extra:
+    1. To run all the apps of the turbo repo in dev mode:
+          - npm run dev
+
+    2. To run each app of the turbo repo saperately in dev mode:
+          - npm run dev --prefix apps/client-next
+          - npm run dev --prefix apps/client-react
+          - npm run dev --prefix apps/express-backend   (here client-next, client-react and express-backend are the apps inside the "apps" folder)
+
+    3. To run each app of the turbo repo individually in the production: 
+          - npm run start:next
+          - npm run start:react
+          - npm run start:express     (here start:next, start:react and start:express are the script defined in the root package.json file)
+
+          below is the example of the root package.json file's script
+          "scripts": {
+              "build": "turbo run build",
+              "dev": "turbo run dev",
+              "lint": "turbo run lint",
+              "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+              "start:react": "cd apps/client-react/dist && serve -p 3001",
+              "start:next": "cd apps/client-next && next start",
+              "start:express": "cd apps/express-backend && node dist/index.js"
+          }
+    4. To run the all the apps together in production:
+          - pm2 start ecosystem.config.json
+
+          And the ecosystem.config.js file looks like below:
+          module.exports = {
+            apps: [
+              {
+                name: 'react-app',
+                script: 'npm',
+                args: 'run start:react',
+                cwd: './',
+                instances: 1,
+                autorestart: true,
+                watch: false,
+                max_memory_restart: '1G',
+                env: {
+                  NODE_ENV: 'production',
+                  PORT: 3001,
+                },
+              },
+              {
+                name: 'next-app',
+                script: 'npm',
+                args: 'run start:next',
+                cwd: './',
+                instances: 1,
+                autorestart: true,
+                watch: false,
+                max_memory_restart: '1G',
+                env: {
+                  NODE_ENV: 'production',
+                },
+              },
+              {
+                name: 'express-app',
+                script: 'npm',
+                args: 'run start:express',
+                cwd: './',
+                instances: 1,
+                autorestart: true,
+                watch: false,
+                max_memory_restart: '1G',
+                env: {
+                  NODE_ENV: 'production',
+                },
+              },
+            ],
+          };
