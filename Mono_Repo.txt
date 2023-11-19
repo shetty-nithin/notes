@@ -1,437 +1,424 @@
----------MONO_REPO IN NEXT.JS-------------
+___________________________________________________________________________________________________________________________________________
+                                                           MONO REPO
+___________________________________________________________________________________________________________________________________________
 
-1. Why mono repos?
-    To share the components, code across various apps.
-2. 
-    * We can share the components without using the mono repos.
-      That is by deploying the component to NPM registry, so that others can install it from npm.
-      But this has one draw back. That is we need to deploy the .js and d.ts to NPM registry.
-    * Most of the time we dont want an end package to bundle down to .js and d.ts files. We just need to share the .ts file.
-      In this case we can make use of the mono repos. The project using this file can take care of bundling down to .js.
+i.    Why mono repos?
+      To share the components, code across various apps.
 
-3. Creating a End to End Mono_Repo
-    * npx create-turbo@latest
-            ------------To create a fresh monorepo-------------
-            [
-                * Delete both docs & web inside "apps"
-                * Create a next app: npx create-next-app@latest
-                * Create a react app: npm create vite@latest & npm install
-                * Create a express backend server: mkdir express-backend
-                      - cd express-backend
-                      - npm init -y 
-                      - tsc --init
-                      - Create src folder
-                      - configure the tsconfig.json
-                * cd packages & mkdir common
-                      - npm init -y
-                      - tsc --init
-                      - configure the tsconfig.json
-                * Bring packages(ui and common) to the main apps ("Dont forget to npm install from the root folder everytime new packages is imported:")
-                      Next:
-                        - add in the package.json file (ex: "ui": "*")
-                        - add in 'transpilePackages: ["ui"]' in the next.config.js file in case of next app
-                      React:
-                        - but in case of react app, there will not be any next.config.js file, therefore need to add the following config in the tsconfig.json file  
-                                "path": {
-                                    "ui": [
-                                      "../../packages/ui/src/index.ts"
-                                    ]
-                                }
-                      Backend:
-                        - use "esbuild" for bundling the backend application. Ex: "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js"
-            ]
-    * Project will be created with 2 next.js app namely docs and web
-    * npm install at the root will install all the dependencies and the basic app is ready:
-    * npm run dev to run the basic web app
-    * folder Structure
-        > apps
-            > docs
-            > web
-                > .next
-                > app
-                    > page.tsx
-                        import { Button, Header } from "ui"
-                        export default function Page() {
-                            return (
-                                <>
-                                    <Header text="Web"/>
-                                    <Button />
-                                </>
-                            )
-                        }
-                > next.config.js
-                    module.exports = {
-                        reactStrictMode: true,
-                        transpilePackages: ["ui"],    // because "ui" is not compiled in the "packages" folder.
-                    };
-        > packages
-            > common                          // user defined
-            > eslint-config.custom
-            > tsconfig
-            > ui
-                > Button.tsx
-                > Header.tsx
-                > Index.tsx
-                > package.json
-                > tsconfig.json
-    
-            # in the ui/package.json file we need to mention the following 2 lines
-                "main": "./index.tsx"
-                "types": "./index.tsx"
-    
-    * Inside the "apps" run the following command     
-        npx create-next-app@latest
-    
-    * Now the folder structure will be
-        > apps
-            > client
-                > src
-                > package.json
-                    "dependencies": {
-                        ....
-                        "ui": "*"
-                    }
-                > next.config.js
-                    module.exports = {
-                        reactStrictMode: true,
-                        transpilePackages: ["ui"],    // because "ui" is not compiled in the "packages" folder.
-                    };
-            > docs
-            > web
-    
-    * Whenever we add a new package to package.json, we need to go to the root folder and run "npm install" command. 
+ii.   * We can share the components without using the mono repos.
+        That is by deploying the component to NPM registry, so that others can install it from npm.
+        But this has one draw back. That is we have to deploy the .js and d.ts to NPM registry.
+      * Most of the time we dont want an end package to bundle down to .js and d.ts files. We just need to share the .ts file.
+        In this case we can make use of the mono repos. The project(ex: client-react, client-next, express-backend) using this file (ex: ui component) can 
+        take care of bundling down to .js.
 
-
-
-----------Mono Repo Deployement----------------
-
-Creating mono repo from React + Next.js + Express.js app in the same TURBO repo and deploying the mono repos
-using github CI/CD.
-
-1. npx create-turbo@latest
-2. Make 'apps' folder completely empty. (Remove the 'web' and 'docs' folder from the 'apps' folder.)
-3. Create 
-    - client-next app using "npx create-next-app@lates"
-    - client-react app using "npm create vite@latest" and 
-    - express-backend (mkdir express-backend) folder inside the 'apps' folder.
-        - cd express-backend
-        - npm init -y 
-        - tsc --init
-        - Create src folder
-        - configure the tsconfig.json
-3. cd express-backend
-    - npm init -y
-    - tsc --init
-    - configure the tsconfig.json
-4. cd packages
-    - Create an empty 'common' package and add 'ZOD' in there.
-5. Bring 'ui' and 'common' into the main apps.
-    Next app:
-      - In the client-next/package.json add the following configs.
-          dependencies: {
-              "ui": "*",
-              "common": "*"
-          }
-      - In the client-next/next.config.json add the following configs.
-          const nextConfig = {
-              reactRestrictMode: true,
-              transpilePackages: ["ui", "common"]
-          }
-    React app:
-      - In client-react/tsconfig.json add the following configs.
-          "paths": {
-              "ui": [
-                  "../../packages/ui/src/index.ts"
-              ],
-          }
-    Express app:
-      - In express also we can add the configs as in the react app, but it will throw some error.
-        Thats why we use esbuild in the express-backend/package.json.
-      - use "esbuild" for bundling the backend application. Ex: "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js"
-
-6. Deploying all the apps (3 in this case) when the changes is made only in 1 or a few apps is not 
-   effecient. Therefore we create a 'deploy.sh' file in all the apps in the root folder. By doing this we can deploy/restart
-   a specific app when the ec2 machine calls. (deploy.sh file contains the automation of deployment)
-        - deploy.sh for Next:
-        - deploy.sh for React:
-        - deploy.sh for Backend:
-            ex: 
-              #!/bin/bash
-              export PATH=$PATH:/home/ubuntu/.nvm/versions/node/v20.5.1/bin
-
-              cd home/ubuntu/end2endmonorepodemoproject
-              git pull origin master
-              npm build/yarn build
-              pm2 stop nextapp
-              pm2 start npm --name "nextapp" --run "start:nextapp"
-          
-7. In the root package.json, add the following configs.
-    "start:react": "cd apps/client-react/dist && serve -p 3001",
-    "start:next": "cd apps/cleint-next && npm run start",
-    "start:express": "cd apps/express-backend && node dist/index.js"
-
-
--------------------CI/CD Workflow--------------
-
-Steps:
-1. Create a ec2 server
-      - create a key pair (to ssh into the server)
-      - All the ports are closed by default. To enable some of the port, follow the steps:
-        Security ->  Security Groups -> Inbounds rules -> Edit inbound rules = Add some ports
-2. Move the .pem/.cer file to the project folder
-3. SSH into the Server 
-    Run the following command: 
-      - ssh -i(i means input) "name_of_the_certificate" ubuntu@"Public IPv4 DNS"
-        ex: ssh -i monorepo-class.pem ubuntu@ec2-52-66-210-195.ap-south-1.compute.amazonaws.com
-
-              (
-                We will get an error. Select "Yes"
-                WARNING: Permanently added 'ec2-52-66-210-195.ap-south-1.compute.amazonaws.com' (ED25519) to the list of known hosts.
-                         Welcome to Ubuntu 22.04.3 LTS (GNU/Linux 6.2.0-1012-aws x86_64)
-                command to check the permission: ls -ltr "filename"
-              )
-      - pwd: to check the directory of the ubuntu machine
-
-      IF REQUIRED:
-      - Chang the permission of the file using the below command 
-          chmod 600 ./"filename"
-          ex: chmod 600 ./monorepo-class.pem
-
-4. Clone the code from the Github to the Ubuntu machine.
-      - Copy the HTTPS link. Not the SSH/GitHub CLI
-      - git clone https://github.com/shetty-nithin/monorepo_demo.git
-5. Install node, npm, yarn:
-    (Google: how to install node on ubuntu 20. DigitalOcean blog post)
-    - curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash => This bring NVM to the ubuntu machine
-    - We will get few commands after running the above command. Copy those and run again. The command looks like below.
-        (
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-          [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-        )
-    - nvm install node
-    - npm install globally as well as in the apps
-    - now the apps are up in the respective port.
+iii.  ----------Creating a End to End Mono_Repo----------------------
+      1.  npx create-turbo@latest
+      2.  Project will be created with 2 next.js app namely docs and web
+      3.  npm install at the root will install all the dependencies and the basic app is ready:
+      4.  npm run dev to run the basic web app
+      5.  folder Structure
+            > apps
+                > docs
+                > web
+                    > .next
+                    > app
+                        > page.tsx
+                            import { Button, Header } from "ui"
+                            export default function Page() {
+                                return (
+                                    <>
+                                        <Header text="Web"/>
+                                        <Button />
+                                    </>
+                                )
+                            }
+                    > next.config.js
+                        module.exports = {
+                            reactStrictMode: true,
+                            transpilePackages: ["ui"],    // because "ui" is not compiled in the "packages" folder.
+                        };
+            > packages
+                > common                          // user defined
+                > eslint-config.custom
+                > tsconfig
+                > ui
+                    > Button.tsx
+                    > Header.tsx
+                    > Index.tsx
+                    > package.json
+                    > tsconfig.json
+        
+        Note: In the ui/package.json file we need to mention the following 2 lines
+              "main": "./index.tsx"
+              "types": "./index.tsx"
       
-6. Install pm2 : We dont want the server to go down whenever the laptop is shutdown. Thats why we are using the pm2 library
-    - npm i -g pm2
-7. By default the apps will be running on HTTP. And we need to append the PORT it is running on to access the website. 
-   To avoid this,[PENDING...] 
 
-8. Whenever there is a change in the codebase, just pushing the latest code into the github is not enough, we have to SSH into
-   the ec2 server and deploy it manually as below.
-    - ssh into the machine
-    - cd in to the folder
-    - pull the latest code: git pull origin master
-    - stop the existing process: pm2 kill
-    - re-build the code: npm install & npm run build
-    - re start the pm2 process
+      -------------To create a fresh monorepo-------------
+      1.  npx create-turbo@latest
+      2.  Project will be created with 2 next.js app namely docs and web
+      3.  Delete both docs & web inside "apps"
+      4.  Create a next app: npx create-next-app@latest
+      5.  Create a react app: npm create vite@latest & npm install
+      6.  Create a express backend server: mkdir express-backend
+              - cd express-backend
+              - npm init -y          // to initialize the package.json 
+              - tsc --init
+              - Create src folder
+              - configure the tsconfig.json
+      7.  cd packages & mkdir common
+              - npm init -y
+              - tsc --init
+              - configure the tsconfig.json
+      8.  Bring packages(ui and common etc...(here ui is the created by default and common is user defined)) to the main apps ("Dont forget to npm install 
+          from the root folder everytime new packages is/are imported:")
+              Next app:
+                - In the client-next/package.json add the following configs.
+                    dependencies: {
+                        "ui": "*",
+                        "common": "*"
+                    }
+                - In the client-next/next.config.json add the following configs.
+                    const nextConfig = {
+                        reactRestrictMode: true,
+                        transpilePackages: ["ui", "common"]
+                    }
+              React app:
+                - but in case of react app, there will not be any next.config.js file, therefore need to add the following config in the tsconfig.json file  
+                    "paths": {
+                        "ui": [
+                            "../../packages/ui/src/index.ts"
+                        ],
+                    }
+              Express app:
+                - In express also we can add the configs as in the react app, but it will throw some error. Thats why we use esbuild in the express-backend/package.json.
+                - use "esbuild" for bundling the backend application. Ex: "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js"
+                  Note: esbuild is being used as a typescript compiler.
+      9.  folder Structure
+            > apps
+                > client-next
+                > client-react
+                > express-backend
+            > packages
+                > common                          // user defined
+                > eslint-config.custom
+                > tsconfig
+                > ui
+      10. Run "npm run dev" from the root folder to run the project on development mode. Now all the apps are live.
+          
 
-    Instead of all these manual work, we can create an automation for all these comands in a single file called "deploy.sh" 
-        deploy.sh:
-        #!/bin/bash (this is called shebang line)
-        export PATH=$PATH:/home/ubuntu/.nvm/versions/node/v20.5.1/bin
+      11. To run on development mode:
+              - To run all the apps of the turbo repo together
+                npm run dev
 
-        cd /home/ubuntu/end2endmonorepodemoproject
-        git pull origin master
-        npm run build
-        pm2 stop express
-        pm2 start npm --name "express" --run "start:express"
+              - To run each app of the turbo repo individually
+                    - npm run dev --prefix apps/client-next
+                    - npm run dev --prefix apps/client-react
+                    - npm run dev --prefix apps/express-backend   (here client-next, client-react and express-backend are the apps inside the "apps" folder)
 
-    to run: source ./deploy.sh
-    Note: Make sure to give execute permissions to your script 
-          - chmod +x deploy.sh
-
-9. Whenever there is a change in the codebase, just pushing the latest code into the github is not enough. We have to SSH into the ec2 machine 
-   and run the command "source ./deploy.sh"
-
-   Instead of these manual steps, we can create an automation for these 2 command in a single file called "script-local.sh" in the local folder.
-   And we need to run this below command in the local machine
-        script-local.sh:
-        ssh -t -i "key-pair file name" ubuntu@"ec2 instance url" "sudo bash ~/deploy.sh" (add this file to the .gitignore file)
-
-10. Whenever there is a change in the codebase, just pushing the latest code into the github is not enough, we have to run the command mentioned in the
-    script-local.sh file.
-
-    Instead of these manual steps, we can create an automation for these command in the github itself. That is github/workflows/filename.yaml
-    NOTE: We need to create .github/workflows/filename.yaml in the root folder of the project (it can also be created from the github itself).
-        example:
-          name: Deploy 
-
-          on:
-            push:
-              branches:
-                - master                     # or any branch name
-
-          jobs:
-            deploy:
-              runs-on: ubuntu-latest
-
-              steps:
-              - name: Checkout code          # means cloning the code
-                uses: action/checkout@v20
-
-              - name: SSH and deploy
-                env: 
-                  SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-                run: |
-                  echo "$SSH_PRIVATE_KEY" > keyfile
-                  chmod 600 keyfile
-                  ssh -t -i keyfile ubuntu#ec2-url "sudo bash ~/deploy.sh"
-
-    But for this .yaml file to run, we need to either push the keypair file (ex: monorepo-class.pem) to the github(which is not recommended) or 
-    we can make use of the github secrets(Settings -> Secrets and Variables -> Actions).
-
-    When github runs this .yaml file which deals with SSH for the first time, it will throw and error saying "Host key verification failed".
-    That is SSH will ask for authentication, we have to enter "Yes/No" manually. By default this answer will be No, thats why github throws the above error.
-    To overcome this, follow the below steps:
-        - Run the following command: ssh-keyscan "ec2-url" >> known_host  (new file named known_host will be created)
-          (we need to run this command in the same directory where we run the git push command)
-        - git push origin master
-        - update the .yaml file as below (we are copy pasting the content from the local known_hosts file to ~/ssh/known_hosts in the ubuntu server)
-
-                    jobs:
-                      deploy:
-                        runs-on: ubuntu-latest
-
-                        steps:
-                        - name: Checkout code          
-                          uses: action/checkout@v20  # means cloning the code
-
-                        - name: SSH and deploy
-                          env: 
-                            SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-                          run: |
-                            echo "$SSH_PRIVATE_KEY" > keyfile
-                            chmod 600 keyfile
-                            mkdir -p ~/.ssh 
-                            cp known_hosts ~/.ssh/known_hosts
-                            ssh -t -i keyfile ubuntu#ec2-url "sudo bash ~/deploy.sh"
-    
-    NOTE: Running this kind of .yaml file is called as "Continuous Integration(CI)". 
-    NOTE: And the whole process from code pushing to the githun and deploying on the ec2 instance is called as a "Continuous Deployment(CD)"
-
-11. All the apps will be live when we run turbo repo. But the problem is we have to append the PORT to the ec2-url to the see the apps.
-    Ony PORT 80 and 443 are not required to append to the ec2-url. But we cannot run any apps on PORT 80/443. 
-    To solve this problem we have to make use of "Reverse Proxy". We can use NGNIX process which can do the reverse proxy.
-    
-    - Install ngnix: sudo apt-get install ngnix
-      It will immediately start running on PORT 80
-    - configuare the ngnix:
-          - go to /etc/ngnix//ngnix.conf using the command: sudo vim /etc/ngnix/ngnix.conf
-          - write the below code:
-              events {
-                  worker_connections 1024;
-              }
-
-              http {
-                  server {
-                      listen 80;
-                      server_name ec2-65-0-105-22.ap-south-1.compute.amazonaws.com;
-
-                      location / {
-                          proxy_pass http://localhost:3000;
-                          prxoy_http_version 1.1;
-                          proxy_set_header Upgrade $http_upgrade;
-                          proxy_set_header Connection 'upgrade';
-                          proxy_set_header Host $host;
-                          proxy_cache_bypass $http_upgrade;
-                      }
-                  }
-              }
-            
-          - restart the ngnix: sudo ngnix -s reload
-
-12. To make the website HTTPS.
-    - go to certbot.eff.org 
-    - select what is runnin gon port 80 and on what process.
-    - follow the installation steps given by the website based on the above selection
-          - SSH into the server
-          - install snapd (by default its present on the aws machine)
-          - install certbot: sudo snap install --classic certbot
-          - prepare the certbot command: sudo ln-s /snap/bin/certbot /usr/bin/certbot
-          - choose how to run certbot: sudo certbot --ngnix
-          - give email
-          - enter "Y"
-          - enter the websites which we want us to create the certificates for: 1,2,3
-
-
-
-
-
-
-
-
-
-Extra:
-    1. To run all the apps of the turbo repo in dev mode:
-          - npm run dev
-
-    2. To run each app of the turbo repo saperately in dev mode:
-          - npm run dev --prefix apps/client-next
-          - npm run dev --prefix apps/client-react
-          - npm run dev --prefix apps/express-backend   (here client-next, client-react and express-backend are the apps inside the "apps" folder)
-
-    3. To run each app of the turbo repo individually in the production: 
-          - npm run start:next
-          - npm run start:react
-          - npm run start:express     (here start:next, start:react and start:express are the script defined in the root package.json file)
-
-          below is the example of the root package.json file's script
+      12. Add following 3 lines of script in the root package.json file to run the apps on the "production"
           "scripts": {
-              "build": "turbo run build",
-              "dev": "turbo run dev",
-              "lint": "turbo run lint",
-              "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+              .
+              .
+              .
               "start:react": "cd apps/client-react/dist && serve -p 3001",
               "start:next": "cd apps/client-next && next start",
               "start:express": "cd apps/express-backend && node dist/index.js"
           }
-    4. To run the all the apps together in production:
-          - pm2 start ecosystem.config.json
 
-          And the ecosystem.config.js file looks like below:
-          module.exports = {
-            apps: [
-              {
-                name: 'react-app',
-                script: 'npm',
-                args: 'run start:react',
-                cwd: './',
-                instances: 1,
-                autorestart: true,
-                watch: false,
-                max_memory_restart: '1G',
-                env: {
-                  NODE_ENV: 'production',
-                  PORT: 3001,
-                },
-              },
-              {
-                name: 'next-app',
-                script: 'npm',
-                args: 'run start:next',
-                cwd: './',
-                instances: 1,
-                autorestart: true,
-                watch: false,
-                max_memory_restart: '1G',
-                env: {
-                  NODE_ENV: 'production',
-                },
-              },
-              {
-                name: 'express-app',
-                script: 'npm',
-                args: 'run start:express',
-                cwd: './',
-                instances: 1,
-                autorestart: true,
-                watch: false,
-                max_memory_restart: '1G',
-                env: {
-                  NODE_ENV: 'production',
-                },
-              },
-            ],
-          };
+      13. To run on production mode:
+              - To run each app of the turbo repo individually
+                    - npm run start:next
+                    - npm run start:react
+                    - npm run start:express     (here start:next, start:react and start:express are the script defined in the root package.json file)
+
+
+      Note: Whenever we add a new package to package.json, Its better to go to the root folder and run "npm install" command. 
+
+iv.   ----------Mono Repo Deployement----------------
+      Creating mono repo from React + Next.js + Express.js app in the same TURBO repo and deploying the mono repo.
+    
+      1. Create a ec2 server on AWS
+            - create a key pair (to ssh into the server)
+            - All the ports are closed by default. To enable some of the port, follow the steps:
+              Security ->  Security Groups -> Inbounds rules -> Edit inbound rules = Add some ports
+              Note: PORT 22 is necessary for SSHing into the ec2 server
+
+      2. Move the .pem/.cer file to the project folder.
+         WARNING: Make sure, you are not pushing this file into the github repo. (add this file in the .gitignore or place it outside the folder)
+
+      3. SSH into the Server 
+            - Open the terminal and run the following command: 
+              ssh -i(i means input) "name_of_the_certificate" ubuntu@"Public IPv4 DNS"
+              ex: ssh -i monorepo-class.pem ubuntu@ec2-52-66-210-195.ap-south-1.compute.amazonaws.com
+
+                    (
+                      We will get an warning as below. 
+                            # WARNING: Permanently added 'ec2-52-66-210-195.ap-south-1.compute.amazonaws.com' (ED25519) to the list of known hosts.
+                            #         Welcome to Ubuntu 22.04.3 LTS (GNU/Linux 6.2.0-1012-aws x86_64)
+                      Select/Enter "Yes"
+                    )
+            Note: pwd is to check the directory of the ubuntu machine
+
+      4. If you get an error while SSHing into the ec2 server using .pem/.cer file, it is mostly because of the file permission.
+            - Change the permission of the file using the below command 
+                chmod 600 ./"filename"
+                ex: chmod 600 ./monorepo-class.pem
+            - run the SSH command again 
+
+            Note: command to check the permission of the file: ls -ltr "filename"
+
+      5. Clone the code from the Github to the ec2 machine.
+            - Copy the HTTPS link (not the SSH/GitHub CLI) from the github repository
+            - And run the following command:
+                git clone "github_repo_link"
+                ex: git clone https://github.com/shetty-nithin/monorepo_demo.git
+
+      6. cd into the project.
+
+      7. Install NVM, node, npm, yarn:
+          (Google: how to install node on ubuntu 20(ec2 server OS). Go through the DigitalOcean blog post)
+
+          - run the following command, which brings the NVM to the ubuntu machin
+              curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
+          - We will get few commands after running the above command. Copy-paste those and run again. The command looks like below.
+              (
+                # export NVM_DIR="$HOME/.nvm"
+                # [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+                # [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+              )
+          - nvm install node
+          - npm i -g yarn
+          - npm install (globally as well as in the individual apps)
+      
+      8. Run the following command to build and run the apps
+          - npm run build
+          - npm run start:next
+          - npm run start:react
+          - npm run start:express
+
+          But we want to run all the apps of the monorepo simultaneously. So we can use "pm2". It also helps in bringing back the server which goes down.
+              - npm i -g pm2
+              - create a new file "ecosystem.config.js" in the root folder.
+                  the ecosystem.config.js file looks like below:
+                  module.exports = {
+                    apps: [
+                      {
+                        name: 'react-app',
+                        script: 'npm',
+                        args: 'run start:react',
+                        cwd: './',
+                        instances: 1,
+                        autorestart: true,
+                        watch: false,
+                        max_memory_restart: '1G',
+                        env: {
+                          NODE_ENV: 'production',
+                          PORT: 3001,
+                        },
+                      },
+                      {
+                        name: 'next-app',
+                        script: 'npm',
+                        args: 'run start:next',
+                        cwd: './',
+                        instances: 1,
+                        autorestart: true,
+                        watch: false,
+                        max_memory_restart: '1G',
+                        env: {
+                          NODE_ENV: 'production',
+                        },
+                      },
+                      {
+                        name: 'express-app',
+                        script: 'npm',
+                        args: 'run start:express',
+                        cwd: './',
+                        instances: 1,
+                        autorestart: true,
+                        watch: false,
+                        max_memory_restart: '1G',
+                        env: {
+                          NODE_ENV: 'production',
+                        },
+                      },
+                    ],
+                  };
+              - pm2 start ecosystem.config.json to start all the apps
+
+
+
+
+
+
+
+
+      3. Deploying all the apps (3 in this case) when the changes is made only in 1 or a few apps is not effecient. Therefore we create 
+         a 'deploy.sh' file in all the apps in the root folder. By doing this we can deploy/restart a specific app when the ec2 machine calls. 
+         (deploy.sh file contains the automation of deployment)
+              - deploy.sh for Next:
+              - deploy.sh for React:
+              - deploy.sh for Backend:
+                  ex: 
+                    #!/bin/bash
+                    export PATH=$PATH:/home/ubuntu/.nvm/versions/node/v20.5.1/bin
+
+                    cd home/ubuntu/end2endmonorepodemoproject
+                    git pull origin master
+                    npm build               // we can use "yarn build" also
+                    pm2 stop nextapp
+                    pm2 start npm --name "nextapp" --run "start:nextapp"
+          
+      2. In the root package.json, add the following configs.
+          "start:react": "cd apps/client-react/dist && serve -p 3001",
+          "start:next": "cd apps/cleint-next && npm run start",
+          "start:express": "cd apps/express-backend && node dist/index.js"
+
+
+v.    -------------------CI/CD Workflow--------------
+      Creating mono repo from React + Next.js + Express.js app in the same TURBO repo and deploying the mono repos using github CI/CD.
+
+            
+      6. Install pm2 : We dont want the server to go down whenever the laptop is shutdown. Thats why we are using the pm2 library
+          - npm i -g pm2
+      7. By default the apps will be running on HTTP. And we need to append the PORT it is running on to access the website. 
+         To avoid this,[PENDING...] 
+
+      8. Whenever there is a change in the codebase, just pushing the latest code into the github is not enough, we have to SSH into
+         the ec2 server and deploy it manually as below.
+          - ssh into the machine
+          - cd in to the folder
+          - pull the latest code: git pull origin master
+          - stop the existing process: pm2 kill
+          - re-build the code: npm install & npm run build
+          - re start the pm2 process
+
+          Instead of all these manual work, we can create an automation for all these comands in a single file called "deploy.sh" 
+              deploy.sh:
+              #!/bin/bash (this is called shebang line)
+              export PATH=$PATH:/home/ubuntu/.nvm/versions/node/v20.5.1/bin
+
+              cd /home/ubuntu/end2endmonorepodemoproject
+              git pull origin master
+              npm run build
+              pm2 stop express
+              pm2 start npm --name "express" --run "start:express"
+
+          to run: source ./deploy.sh
+          Note: Make sure to give execute permissions to your script 
+                - chmod +x deploy.sh
+
+      9. Whenever there is a change in the codebase, just pushing the latest code into the github is not enough. We have to SSH into the ec2 machine 
+         and run the command "source ./deploy.sh"
+
+         Instead of these manual steps, we can create an automation for these 2 command in a single file called "script-local.sh" in the local folder.
+         And we need to run this below command in the local machine
+              script-local.sh:
+              ssh -t -i "key-pair file name" ubuntu@"ec2 instance url" "sudo bash ~/deploy.sh" (add this file to the .gitignore file)
+
+      10. Whenever there is a change in the codebase, just pushing the latest code into the github is not enough, we have to run the command mentioned in the
+          script-local.sh file.
+
+          Instead of these manual steps, we can create an automation for these command in the github itself. That is github/workflows/filename.yaml
+          NOTE: We need to create .github/workflows/filename.yaml in the root folder of the project (it can also be created from the github itself).
+              example:
+                name: Deploy 
+
+                on:
+                  push:
+                    branches:
+                      - master                     # or any branch name
+
+                jobs:
+                  deploy:
+                    runs-on: ubuntu-latest
+
+                    steps:
+                    - name: Checkout code          # means cloning the code
+                      uses: action/checkout@v20
+
+                    - name: SSH and deploy
+                      env: 
+                        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+                      run: |
+                        echo "$SSH_PRIVATE_KEY" > keyfile
+                        chmod 600 keyfile
+                        ssh -t -i keyfile ubuntu#ec2-url "sudo bash ~/deploy.sh"
+
+          But for this .yaml file to run, we need to either push the keypair file (ex: monorepo-class.pem) to the github(which is not recommended) or 
+          we can make use of the github secrets(Settings -> Secrets and Variables -> Actions).
+
+          When github runs this .yaml file which deals with SSH for the first time, it will throw and error saying "Host key verification failed".
+          That is SSH will ask for authentication, we have to enter "Yes/No" manually. By default this answer will be No, thats why github throws the above error.
+          To overcome this, follow the below steps:
+              - Run the following command: ssh-keyscan "ec2-url" >> known_host  (new file named known_host will be created)
+                (we need to run this command in the same directory where we run the git push command)
+              - git push origin master
+              - update the .yaml file as below (we are copy pasting the content from the local known_hosts file to ~/ssh/known_hosts in the ubuntu server)
+
+                      jobs:
+                        deploy:
+                          runs-on: ubuntu-latest
+
+                          steps:
+                          - name: Checkout code          
+                            uses: action/checkout@v20  # means cloning the code
+
+                          - name: SSH and deploy
+                            env: 
+                              SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+                            run: |
+                              echo "$SSH_PRIVATE_KEY" > keyfile
+                              chmod 600 keyfile
+                              mkdir -p ~/.ssh 
+                              cp known_hosts ~/.ssh/known_hosts
+                              ssh -t -i keyfile ubuntu#ec2-url "sudo bash ~/deploy.sh"
+    
+          NOTE: Running this kind of .yaml file is called as "Continuous Integration(CI)". 
+          NOTE: And the whole process from code pushing to the githun and deploying on the ec2 instance is called as a "Continuous Deployment(CD)"
+
+      11. All the apps will be live when we run turbo repo. But the problem is we have to append the PORT to the ec2-url to the see the apps.
+          Ony PORT 80 and 443 are not required to append to the ec2-url. But we cannot run any apps on PORT 80/443. 
+          To solve this problem we have to make use of "Reverse Proxy". We can use NGNIX process which can do the reverse proxy.
+    
+          - Install ngnix: sudo apt-get install ngnix
+            It will immediately start running on PORT 80
+          - configuare the ngnix:
+                - go to /etc/ngnix//ngnix.conf using the command: sudo vim /etc/ngnix/ngnix.conf
+                - write the below code:
+                    events {
+                        worker_connections 1024;
+                    }
+
+                    http {
+                        server {
+                            listen 80;
+                            server_name ec2-65-0-105-22.ap-south-1.compute.amazonaws.com;
+
+                            location / {
+                                proxy_pass http://localhost:3000;
+                                prxoy_http_version 1.1;
+                                proxy_set_header Upgrade $http_upgrade;
+                                proxy_set_header Connection 'upgrade';
+                                proxy_set_header Host $host;
+                                proxy_cache_bypass $http_upgrade;
+                            }
+                        }
+                    }
+                  
+                - restart the ngnix: sudo ngnix -s reload
+
+      12. To make the website HTTPS.
+          - go to certbot.eff.org 
+          - select what is runnin gon port 80 and on what process.
+          - follow the installation steps given by the website based on the above selection
+                - SSH into the server
+                - install snapd (by default its present on the aws machine)
+                - install certbot: sudo snap install --classic certbot
+                - prepare the certbot command: sudo ln-s /snap/bin/certbot /usr/bin/certbot
+                - choose how to run certbot: sudo certbot --ngnix
+                - give email
+                - enter "Y"
+                - enter the websites which we want us to create the certificates for: 1,2,3
+
