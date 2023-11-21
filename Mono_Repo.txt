@@ -105,7 +105,6 @@ iii.  ----------Creating a End to End Mono_Repo----------------------
                 > tsconfig
                 > ui
       10. Run "npm run dev" from the root folder to run the project on development mode. Now all the apps are live.
-          
 
       11. To run on development mode:
               - To run all the apps of the turbo repo together
@@ -164,7 +163,7 @@ iv.   ----------Mono Repo Deployement----------------
             - Change the permission of the file using the below command 
                 chmod 600 ./"filename"
                 ex: chmod 600 ./monorepo-class.pem
-            - run the SSH command again 
+            - run the SSH command once again 
 
             Note: command to check the permission of the file: ls -ltr "filename"
 
@@ -189,7 +188,9 @@ iv.   ----------Mono Repo Deployement----------------
               )
           - nvm install node
           - npm i -g yarn
+          - cd to the folder
           - npm install (globally as well as in the individual apps)
+          - npm install serve
       
       8. Run the following command to build and run the apps
           - npm run build
@@ -246,6 +247,12 @@ iv.   ----------Mono Repo Deployement----------------
                     ],
                   };
               - pm2 start ecosystem.config.json to start all the apps
+                Now all the apps are up and running. 
+                          
+      9. By default the apps will be running on HTTP. And we need to append the PORT it is running on, to access the website. 
+         To avoid this,[PENDING...] 
+                          
+                           
 
 
 
@@ -254,6 +261,8 @@ iv.   ----------Mono Repo Deployement----------------
 
 
 
+                        
+                       
       3. Deploying all the apps (3 in this case) when the changes is made only in 1 or a few apps is not effecient. Therefore we create 
          a 'deploy.sh' file in all the apps in the root folder. By doing this we can deploy/restart a specific app when the ec2 machine calls. 
          (deploy.sh file contains the automation of deployment)
@@ -278,14 +287,8 @@ iv.   ----------Mono Repo Deployement----------------
 
 v.    -------------------CI/CD Workflow--------------
       Creating mono repo from React + Next.js + Express.js app in the same TURBO repo and deploying the mono repos using github CI/CD.
-
             
-      6. Install pm2 : We dont want the server to go down whenever the laptop is shutdown. Thats why we are using the pm2 library
-          - npm i -g pm2
-      7. By default the apps will be running on HTTP. And we need to append the PORT it is running on to access the website. 
-         To avoid this,[PENDING...] 
-
-      8. Whenever there is a change in the codebase, just pushing the latest code into the github is not enough, we have to SSH into
+      1. Whenever there is a change in the codebase, just pushing the latest code into the github is not enough, we have to SSH into
          the ec2 server and deploy it manually as below.
           - ssh into the machine
           - cd in to the folder
@@ -294,19 +297,20 @@ v.    -------------------CI/CD Workflow--------------
           - re-build the code: npm install & npm run build
           - re start the pm2 process
 
-          Instead of all these manual work, we can create an automation for all these comands in a single file called "deploy.sh" 
+          Instead of all these manual work, we can create an automation for all these comands in a single file called "deploy.sh" in the root folder.
+          (i.e., outside the project folder)
               deploy.sh:
               #!/bin/bash (this is called shebang line)
               export PATH=$PATH:/home/ubuntu/.nvm/versions/node/v20.5.1/bin
 
-              cd /home/ubuntu/end2endmonorepodemoproject
-              git pull origin master
+              cd /home/ubuntu/monorepo_demo
+              git pull origin main
               npm run build
-              pm2 stop express
-              pm2 start npm --name "express" --run "start:express"
+              pm2 kill
+              pm2 start
 
           to run: source ./deploy.sh
-          Note: Make sure to give execute permissions to your script 
+          Note: Make sure to give execute permissions to your script (while running throgh CI/CD pipeline of github)
                 - chmod +x deploy.sh
 
       9. Whenever there is a change in the codebase, just pushing the latest code into the github is not enough. We have to SSH into the ec2 machine 
@@ -316,6 +320,8 @@ v.    -------------------CI/CD Workflow--------------
          And we need to run this below command in the local machine
               script-local.sh:
               ssh -t -i "key-pair file name" ubuntu@"ec2 instance url" "sudo bash ~/deploy.sh" (add this file to the .gitignore file)
+              OR
+              ssh -t -i "key-pair file name" ubuntu@"ec2 instance url" "sudo source ~/deploy.sh" (add this file to the .gitignore file)
 
       10. Whenever there is a change in the codebase, just pushing the latest code into the github is not enough, we have to run the command mentioned in the
           script-local.sh file.
