@@ -190,7 +190,7 @@ iv.   ----------Mono Repo Deployement----------------
           - nvm install node
           - npm i -g yarn
           - cd to the folder
-          - npm install (globally as well as in the individual apps)
+          - npm install       (globally as well as in the individual apps)
           - npm install serve
       
       8. Run the following command to build and run the apps
@@ -206,7 +206,7 @@ iv.   ----------Mono Repo Deployement----------------
                   module.exports = {
                     apps: [
                       {
-                        name: 'react-app',
+                        name: 'react',
                         script: 'npm',
                         args: 'run start:react',
                         cwd: './',
@@ -220,7 +220,7 @@ iv.   ----------Mono Repo Deployement----------------
                         },
                       },
                       {
-                        name: 'next-app',
+                        name: 'next',
                         script: 'npm',
                         args: 'run start:next',
                         cwd: './',
@@ -233,7 +233,7 @@ iv.   ----------Mono Repo Deployement----------------
                         },
                       },
                       {
-                        name: 'express-app',
+                        name: 'express',
                         script: 'npm',
                         args: 'run start:express',
                         cwd: './',
@@ -364,20 +364,67 @@ v.    -------------------CI/CD Workflow--------------
                 - deploy.sh for Backend:
                     ex: 
                       #!/bin/bash
-                      export PATH=$PATH:/home/ubuntu/.nvm/versions/node/v20.5.1/bin
+                      export PATH=$PATH:/home/ubuntu/.nvm/versions/node/v21.4.0/bin
 
-                      cd home/ubuntu/end2endmonorepodemoproject
-                      git pull origin master
-                      npm build               // we can use "yarn build" also
-                      pm2 stop nextapp
-                      pm2 start npm --name "nextapp" --run "start:nextapp"
+                      cd /home/ubuntu/monorepo_demo
+                      git pull origin main
+                      npm install
+                      npm run build
+                      pm2 stop next
+                      pm2 delete next
+                      pm2 start ecosystem.config.js --only next
+                      // pm2 start npm --name "nextapp" --run "start:next"
+
+                NOTE: Make the sure the name giving to the process (in this case "nextapp") is same as the name given in the ecosystem.config.js file to run all the apps.
+
+            And create a different action file in the .github/workflows folder.
+            folder structure:
+                > .github 
+                    > workflows
+                        - client-next-deploy.yaml
+                        - client-react-deploy.yaml
+                        - express-backend-deploy.yaml
+
+                            example:
+                            name: Deploy client-next
+
+                            on:
+                              push:
+                                paths:
+                                  - 'apps/client-next/**'
+                                  - 'packages/ui/**'
+                                  - 'packages/common/**'
+                                branches:
+                                  - main
+
+                            jobs:
+                              deploy:
+                                runs-on: ubuntu-latest
+
+                                steps:
+                                - name: Checkout code
+                                  uses: actions/checkout@v2   #cloning the code
+
+                                - name: SSH and deploy
+                                  env:
+                                    SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+                                  run: |
+                                    echo "$SSH_PRIVATE_KEY" > keyfile
+                                    chmod 600 keyfile
+                                    mkdir -p ~/.ssh
+                                    cp known_hosts ~/.ssh/known_hosts
+                                    ssh -t -i keyfile ubuntu@ec2-url-1-11.ap-south-1.compute.amazonaws.com	 "sudo bash /home/ubuntu/monorepo_demo/apps/client-next/deploy.sh"
+         
 
 
 
 
 
 
-        11. All the apps will be live when we run turbo repo. But the problem is we have to append the PORT to the ec2-url to the see the apps.
+
+
+vi.   ------------------------------------------
+        1. All the apps will be live when we run turbo repo. But the problem is we have to append the PORT to the ec2-url to the see the apps.
             Ony PORT 80 and 443 are not required to append to the ec2-url. But we cannot run any apps on PORT 80/443. 
             To solve this problem we have to make use of "Reverse Proxy". We can use NGNIX process which can do the reverse proxy.
       
