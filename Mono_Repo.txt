@@ -1,6 +1,6 @@
-___________________________________________________________________________________________________________________________________________
+______________________________________________________________________________________________________________________________________________________________________________
                                                            MONO REPO
-___________________________________________________________________________________________________________________________________________
+______________________________________________________________________________________________________________________________________________________________________________
 
 i.    Why mono repos?
       To share the components, code across various apps.
@@ -12,7 +12,7 @@ ii.   * We can share the components without using the mono repos.
         In this case we can make use of the mono repos. The project(ex: client-react, client-next, express-backend) using this file (ex: ui component) can 
         take care of bundling down to .js.
 
-iii.  ----------Creating a End to End Mono_Repo----------------------
+iii.  ----------Creating a End to End Mono_Repo-------------------------------------------------------------------------------------------------------------------------------
       1.  npx create-turbo@latest
       2.  Project will be created with 2 next.js app namely docs and web
       3.  npm install at the root will install all the dependencies and the basic app is ready:
@@ -54,7 +54,7 @@ iii.  ----------Creating a End to End Mono_Repo----------------------
               "types": "./index.tsx"
       
 
-      -------------To create a fresh monorepo-------------
+      -------------To create a fresh monorepo---------------------------------------------------------------------------------------------------------------------------------
       1.  npx create-turbo@latest
       2.  Project will be created with 2 next.js app namely docs and web
       3.  Delete both docs & web inside "apps"
@@ -66,6 +66,7 @@ iii.  ----------Creating a End to End Mono_Repo----------------------
               - tsc --init
               - Create src folder
               - configure the tsconfig.json
+              NOTE: add a .gitignore file and mention the "dist" folder
       7.  cd packages & mkdir common
               - npm init -y
               - tsc --init
@@ -253,7 +254,7 @@ iv.   ----------Mono Repo Deployement----------------
       9. By default the apps will be running on HTTP. And we need to append the PORT on which it is running on, to access the website. 
          To avoid this,[PENDING...] 
 
-v.    -------------------CI/CD Workflow--------------
+v.    -------------------CI/CD Workflow---------------------------------------------------------------------------------------------------------------------------------------
       Creating mono repo from React + Next.js + Express.js app in the same TURBO repo and deploying the mono repos using github CI/CD.
       
       Pre-CI/CD days:
@@ -415,22 +416,16 @@ v.    -------------------CI/CD Workflow--------------
                                     cp known_hosts ~/.ssh/known_hosts
                                     ssh -t -i keyfile ubuntu@ec2-url-1-11.ap-south-1.compute.amazonaws.com	 "sudo bash /home/ubuntu/monorepo_demo/apps/client-next/deploy.sh"
          
-
-
-
-
-
-
-
-
-vi.   ------------------------------------------
-        1. All the apps will be live when we run turbo repo. But the problem is we have to append the PORT to the ec2-url to the see the apps.
+                                                      
+vi.    -------------------Reverse Proxy---------------------------------------------------------------------------------------------------------------------------------------
+        1.  All the apps will be live when we run turbo repo. But the problem is we have to append the PORT to the ec2-url to the see the apps.
             Ony PORT 80 and 443 are not required to append to the ec2-url. But we cannot run any apps on PORT 80/443. 
             To solve this problem we have to make use of "Reverse Proxy". We can use NGNIX process which can do the reverse proxy.
       
-            - Install ngnix: sudo apt-get install ngnix
-              It will immediately start running on PORT 80
-            - configuare the ngnix:
+            - Install ngnix: sudo apt-get install nginx
+              It will immediately start running on PORT 80 (in the system where nginx is installed)
+            - Now we need to divert the request to respective PORT 
+              configuare the ngnix:
                   - go to /etc/ngnix//ngnix.conf using the command: sudo vim /etc/ngnix/ngnix.conf
                   - write the below code:
                       events {
@@ -440,10 +435,36 @@ vi.   ------------------------------------------
                       http {
                           server {
                               listen 80;
-                              server_name ec2-65-0-105-22.ap-south-1.compute.amazonaws.com;
+                              server_name your_domain_name_for_frontend
 
                               location / {
-                                  proxy_pass http://localhost:3000;
+                                  proxy_pass http://localhost:3001;
+                                  prxoy_http_version 1.1;
+                                  proxy_set_header Upgrade $http_upgrade;
+                                  proxy_set_header Connection 'upgrade';
+                                  proxy_set_header Host $host;
+                                  proxy_cache_bypass $http_upgrade;
+                              }
+                          },
+                          server {
+                              listen 80;
+                              server_name your_domain_name_for_backend_1
+
+                              location / {
+                                  proxy_pass http://localhost:3002;
+                                  prxoy_http_version 1.1;
+                                  proxy_set_header Upgrade $http_upgrade;
+                                  proxy_set_header Connection 'upgrade';
+                                  proxy_set_header Host $host;
+                                  proxy_cache_bypass $http_upgrade;
+                              }
+                          },
+                          server {
+                              listen 80;
+                              server_name your_domain_name_for_backend_2
+
+                              location / {
+                                  proxy_pass http://localhost:3003;
                                   prxoy_http_version 1.1;
                                   proxy_set_header Upgrade $http_upgrade;
                                   proxy_set_header Connection 'upgrade';
@@ -452,19 +473,27 @@ vi.   ------------------------------------------
                               }
                           }
                       }
-                    
-                  - restart the ngnix: sudo ngnix -s reload
+
+                    - restart the ngnix: sudo nginx -s reload
+
+                      Explanation: 
+                                  NGINX is running on ec2 instance, listening at PORT 80. In the GoDaddy/Google domain wherever your domain name is present, 
+                      you have to configure there by redirecting the purchased domain name to the ec2 url. When the ec2 instance is running, all the apps will
+                      will live on the different ports of ec2 local host. Whenever you visit "your_domain_name" on the browser, you will be redirected to 
+                      repective proxy_pass without the port.
 
         12. To make the website HTTPS.
             - go to certbot.eff.org 
-            - select what is runnin gon port 80 and on what process.
+            - select what is running on port 80 and on what process.
             - follow the installation steps given by the website based on the above selection
                   - SSH into the server
                   - install snapd (by default its present on the aws machine)
                   - install certbot: sudo snap install --classic certbot
                   - prepare the certbot command: sudo ln-s /snap/bin/certbot /usr/bin/certbot
-                  - choose how to run certbot: sudo certbot --ngnix
+                  - choose how to run certbot: sudo certbot --nginx
                   - give email
                   - enter "Y"
                   - enter the websites which we want us to create the certificates for: 1,2,3
+
+            If the creatino successfull, then the nginx.conf would be updated.
 
