@@ -311,7 +311,6 @@ const { resolve } = require("path");
 // INTERVIEW QUESTIONS ON NODE.JS
 //_______________________________
 
-/*
 1. What is Node.js?
     * Very popular scripting language that is primarily used for server
     side scripting requirements.
@@ -748,4 +747,3 @@ const { resolve } = require("path");
     technology, job, and the company.
 
 Read More : https://medium.com/capital-one-tech/node-js-control-flow-an-overview-68f76ef750c3
-*/

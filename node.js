@@ -280,7 +280,6 @@ const properties = require("./location/of/the/module")
 // INTERVIEW QUESTIONS ON NODE.JS
 //_______________________________
 
-/*
 1. What is Node.js?
     * Very popular scripting language that is primarily used for server
     side scripting requirements.
@@ -647,5 +646,3 @@ const properties = require("./location/of/the/module")
     * Job description
     * The answer can be elaborated with how your interests align with the 
     technology, job, and the company.
-
-*/

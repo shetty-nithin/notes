@@ -1,4 +1,3 @@
-/*
 Benefits:
     * Static Typing
     * Code Completion
@@ -47,7 +46,6 @@ Data Types:
         - never
         - enum
         - tuple
-*/
 
 // Syntaxes with example:
 //1
@@ -154,7 +152,7 @@ Data Types:
 
 
 
-/* --------Converting JS to TS -----------------
+--------Converting JS to TS -----------------
 
 1. Change the file name from .js to .ts
 2. run "tsc --init" to create a tsconfig.json file
@@ -197,11 +195,3 @@ Data Types:
     Solution 2: req.headers["userId"] = user.id;
 
 Converting to TS from react.js is little difficult. We can make use of Vite bootstrap
-
-*/
-
-/* ----- Mono Repos
-
-
-
-*/

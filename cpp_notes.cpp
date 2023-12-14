@@ -1,4 +1,3 @@
-/*
 1. Difference between the C struct and C++ strct
    C : 
         i. Only data members are allowed, it cannot have the member function.
@@ -597,4 +596,3 @@ solve this issue.
             cout << myMax(4.5, 8) << endl;
             return 0;
         }
-*/

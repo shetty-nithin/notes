@@ -22,6 +22,3 @@ class Program {
   x. Microservices
 
 5. Value Types: bool, byte, sbyte, char, string, decimal, double, float, int, uint, long, ulong, short, ushort
-
-
-

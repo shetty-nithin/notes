@@ -1,6 +1,6 @@
-/*
-        Vim Cheat Sheet
-        ---------------
+______________________________________________________________________
+                     Vim Cheat Sheet                                  
+______________________________________________________________________
 
 :q  - quit
 :q! - quit without saving
@@ -108,11 +108,10 @@ qa      -   record the macro
 q       -   stop recording the macro
 @a      -   to run the macro
 
-*/
 
-
-/*
+_____________________________
 LUA Configs:
+_____________________________
 
 Space       - Menu (Key bindings) 
 Space + e   - Toggle the explorer 
@@ -127,5 +126,3 @@ ctrl + \    - Toggle between the Terminal and the Buffer
 5. cd nvim
 6. touch init.vim/init.lua
 7. nvim init.lua
-
-*/

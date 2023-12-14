@@ -1,4 +1,3 @@
-/*
 1. Explain js is dynamic language?
     The data types of the variable can change during the runtime.
     ex : let x = 10;
@@ -234,4 +233,3 @@
     var i1 = 10;
     console.log(i + i1) => 20
     console.log(i + i1 + "4") => 24
-*/
