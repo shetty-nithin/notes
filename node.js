@@ -102,7 +102,7 @@ const properties = require("./location/of/the/module")
     
 // HTTP : 
     const http = require('http'); // http is built-in node module
-    const server = http.createServer((req, res) => {
+    const server1 = http.createServer((req, res) => {
         if(req.url === '/'){
             res.end('welcome to home page.');
         }
@@ -111,7 +111,7 @@ const properties = require("./location/of/the/module")
         }
         res.end('no such page exists');
     });
-    server.listen(5000);
+    server1.listen(5000);
 
 
     const { readFile } = require('fs')
@@ -120,6 +120,7 @@ const properties = require("./location/of/the/module")
         else console.log(result);
     })
 
+    // Promise: (When it completes, its results are stored in the promise and can then be ‘claimed’ by the caller.)
     const getText = (path) => {
         return new Promise((resolve, reject) => {
             readFile(path, 'utf8', (err, result) => {
@@ -128,13 +129,13 @@ const properties = require("./location/of/the/module")
             })
         })
     }
-    //-----------------------------
-    // Promise
+
     getText('./test.txt')
         .then(result => (console.log(result)))
         .catch(err => console.log(err));
 
 
+    // Async Await
     const getText2 = (path) => {
         return new Promise((resolve, reject) => {
             readFile(path, 'utf8', (err, result) => {
@@ -144,8 +145,6 @@ const properties = require("./location/of/the/module")
         })
     }
 
-    //--------------------
-    // Async Await
     const start = async() => {
         try {
             const first = await getText2('./test.txt');
@@ -159,7 +158,7 @@ const properties = require("./location/of/the/module")
     start();
 
 
-    //--------------
+    // Instead of wiriting the proimse on read and write explicitely we can make use of the inbuilt "util.promisify()".
     const { readFile, writeFile } = require('fs')
     const util = require('util');
     const readFilePromise = util.promisify(readFile);
@@ -186,99 +185,132 @@ const properties = require("./location/of/the/module")
     // Event-driven programmings are used heavily in Node.js
 
     // on -> listen for an event
-    // enit -> emits an event
+    // emit -> emits an event
 
-    // const EventEmitter = require('events');
-    // const customEmitter = new EventEmitter();
+    const EventEmitter = require('events');
+    const customEmitter = new EventEmitter();
 
-    // customEmitter.on('response', (name) => {
-    //     console.log('data received from : ', name);
-    // });
-    // customEmitter.on('response', () => {
-    //     console.log('another data received');
-    // });
-    // customEmitter.emit('response', 'nithin shetty');
+    customEmitter.on('response', (name) => {
+        console.log('data received from : ', name);
+    });
+    customEmitter.on('response', () => {
+        console.log('another data received');
+    });
+    customEmitter.emit('response', 'nithin shetty');
 
-    // const http = require('http');
-    // const server = http.createServer();
+    const http = require('http');
+    const server = http.createServer();
     
-    // // we can subscribe to it/ listen to it/ and responds to it
-    // server.on('request', (req, res) => {
-    //     res.end('welcome');
-    // })
-    // server.listen(5000);
+    // we can subscribe to it/ listen to it/ and responds to it
+    server.on('request', (req, res) => {
+        res.end('welcome');
+    })
+    server.listen(5000);
+
+    const events = require('events');
+    const eventEmitter = new events.EventEmitter();
+    
+    // Handler associated with the event
+    const connectHandler = function connected() {
+        console.log('Connection established.');
+        // Trigger the corresponding event
+        eventEmitter.emit('data_received');
+    }
+    
+    // Binds the event with handler
+    eventEmitter.on('connection', connectHandler);
+    
+    // Binds the data received
+    eventEmitter.on(
+        'data_received', function () {
+            console.log('Data Transfer Successful.');
+        });
+    
+    // Trigger the connection event
+    eventEmitter.emit('connection');
+    
+    console.log("Finish");
+    // Many of Node’s built-in modules inherit from EventEmitter.
 
 // STREAMS : 
-    // * Writeable
-    // * Readable
-    // * Duplex
-    // * Transform
+    /*
+    * Writeable
+    * Readable
+    * Duplex
+    * Transform
+    */
 
-    // const { createReadStream } = require('fs');
-    // const stream = createReadStream('./test.txt', { encoding : 'utf8'});
+    const { createReadStream } = require('fs');
+    const stream = createReadStream('./test.txt', { encoding : 'utf8'});
     
-    // stream.on('data', (result) => {
-    //     console.log(result);
-    // });
-    // stream.on('error', (err) => {
-    //     console.log(err);
-    // })
+    stream.on('data', (result) => {
+        console.log(result);
+    });
+    stream.on('error', (err) => {
+        console.log(err);
+    })
     
-    // // by default the size of the buffer is 64kb, however we can control the size
-    // // by using 
-    // // highWaterMark - Control Size
-    // // last buffer - remainder
-    // // const stream = createReadStream('./test.txt', {highWaterMark : 90000});
-    // // const stream = createReadStream('./test.txt', {encoding : 'utf8'});
+    /*
+    by default the size of the buffer is 64kb, however we can control the size by using 
+    highWaterMark - Control Size
+    last buffer - remainder
+    const stream = createReadStream('./test.txt', {highWaterMark : 90000});
+    const stream = createReadStream('./test.txt', {encoding : 'utf8'});
+    */
 
 
 // Exchange of data on the web (HTTP Messages) : 
-    // - user send the http req message and then the server sends 
-    //   the http res message.
+    /*
+    - user send the http req message and then the server sends 
+      the http res message.
 
-    // Aim of server to make the resource available to the user.
+    Aim of server to make the resource available to the user.
 
-    // HTTP Methods : GET, POST, PUT, DELETE
-    // Structure of a Request Message : 
-        // method -> GET /contact http/1.1
-        // Headers
-        // Body(optional)
-    // Structure of a Response Message : 
-        // http/1.1 200 OK
-        // Headers
-        // Body(optional)
-        // Headers : Content-Type: text/html; charset=UTF-8
-        //           Content-Type: application/json; charset=utf-8
-
+    HTTP Methods : GET, POST, PUT, DELETE
+    Structure of a Request Message : 
+        method -> GET /contact http/1.1
+        Headers
+        Body(optional)
+    Structure of a Response Message : 
+        http/1.1 200 OK
+        Headers
+        Body(optional)
+        Headers : Content-Type: text/html; charset=UTF-8
+                  Content-Type: application/json; charset=utf-8
+    */
 
         
 // Server using express.js
-    // const express = require('express');
-    // const app = express();
+    /*
+    const express = require('express');
+    const app = express();
 
-    // app.get('/', (req, res) => {
-    //     res.send('sup')
-    // });
+    app.get('/', (req, res) => {
+        res.send('sup')
+    });
 
-    // app.all('*', (req, res) => {
-    //     res.status(404).send('all methods');
-    // })
+    app.all('*', (req, res) => {
+        res.status(404).send('all methods');
+    })
 
-    // app.listen(5000, () => { console.log('server is up')});
+    app.listen(5000, () => { console.log('server is up')});
+    */
 
 // API vs SSR //https://aws.amazon.com/what-is/api/
-//The main feature of REST API is statelessness. Statelessness means that servers do not save client data between requests. 
-    // API - JSON  SSR - TEMPLATE
-    // SEND
-    // RES.JSON()  RES.RENDER()
+    /*
+    The main feature of REST API is statelessness. Statelessness means that servers do not save client data between requests. 
+        API - JSON  SSR - TEMPLATE
+        SEND
+        RES.JSON()  RES.RENDER()
     
 
-// app.use(express.static('./public'));
+    app.use(express.static('./public'));
+    */
 
-
-//_______________________________
-// INTERVIEW QUESTIONS ON NODE.JS
-//_______________________________
+/*
+__________________________________________________________________________________
+                    INTERVIEW QUESTIONS ON NODE.JS
+__________________________________________________________________________________
 
 1. What is Node.js?
     * Very popular scripting language that is primarily used for server
@@ -330,7 +362,7 @@ const properties = require("./location/of/the/module")
         * Synchronous APIs: Used for non-blocking functions
         * Asynchronous APIs: Used for blocking functions.
 
-8. What is the difference between synchronous and asynchronous functions?
+8. What are the difference between synchronous and asynchronous functions?
     Synchronous:
      * Synchronous functions are mainly used for I/O operations.  
      * They are instantaneous in providing a response to the data movement
@@ -338,7 +370,7 @@ const properties = require("./location/of/the/module")
      * If there are no responses, then the API will throw an error.
 
      Asynchronous:
-     * As the name suggests, asynchronous is works on the basis of no being 
+     * As the name suggests, asynchronous is works on the basis of not being 
      synchronous.
      * Here, HTTP requests when pushed will not wait for the response to begin.
      Responses to any previous requests will be continous even if the server
@@ -346,7 +378,7 @@ const properties = require("./location/of/the/module")
 
 9. What is the meaning of the control flow function?
     * The control flow function is the common code snippet, whech executes
-    whenever there are any asynchronous function calls made.
+    whenever there are any asynchronous function calls are made.
     * They are used to evaluate the order in which these functions are executed
     in node.js
 
@@ -393,12 +425,30 @@ const properties = require("./location/of/the/module")
     * Task function
 
 15. Are there any disadvantages to using Node.js?
-    * A multi-threaded platform can run more effectively and provide
-    better responsiveness when it comes to the execution of intensive
-    CPU computation.
-    * Usage of relations DB with node.js is becoming obsolete already.
+    Disadvantages:
+        Reduces performance when handling Heavy Computing Tasks
+        Node.js invites a lot of code changes due to Unstable API
+        Node.js Asynchronous Programming Model makes it difficult to maintain code
+        Choose Wisely – Lack of Library Support can Endanger your Code
+        High demand with a few Experienced Node.js Developers
+        * A multi-threaded platform can run more effectively and provide
+        better responsiveness when it comes to the execution of intensive
+        CPU computation.
+        * Usage of relations DB with node.js is becoming obsolete already.
+    Advantages:
+        High-performance for Real-time Applications
+        Easy Scalability for Modern Applications
+        Cost-effective with Fullstack JS
+        Community Support to Simplify Development
+        Easy to Learn and Quick to Adapt
+        Helps in building Cross-functional Teams
+        Improves App Response Time and Boosts Performance
+        Reduces Time-to-Market of your applications
+        Extensibility to Meet Customized Requirements
+        Reduces Loading Time by Quick Caching
+        Helps in Building Cross-Platform Applications
 
-16. What is the primary reason to use the even-based model in node.js?
+16. What is the primary reason to use the event-based model in node.js?
     The event-based model in the node.js is used to overcome the problems
     that occurs when using blocking operations in the I/O channel.
 
@@ -408,7 +458,7 @@ const properties = require("./location/of/the/module")
     This command will ensure that the HTTP library is loaded completely, 
     along with the exported object.
 
-18. What is meant by event-driven programming in Node.js?
+18. What do you mean by event-driven programming in Node.js?
     * Event-driven programming is a technique in which the workflow execution
     of a program is mainly controlled by the occurence of events from external
     programs or other sources.
@@ -462,15 +512,11 @@ const properties = require("./location/of/the/module")
     * Also provides uses the real-time abilities to work with the application.
 
 25. What is the difference between spawn and fork methods in Node.js?
-    * The spawn() function is used to create a new process and launch it using 
-    the command line. What it does is that it creates a node modules on the
-    processor. Node.js invokes this method when the child processes return data.
+    * The spawn() function is used to create a new process and launch it using the command line. What it does is that it creates a node modules on the processor. Node.js invokes this method when the child processes return data.
     * The following is the syntax for the spawn() method:
         child_process.spawn(command[,args][,options])
     
-    * The fork() method can be considered as an instance of the already existing
-    spawn() method. Spawning ensures that there are more than one active
-    worker node to handle tasks at any given point of time.
+    * The fork() method can be considered as an instance of the already existing spawn() method. Spawning ensures that there are more than one active worker node to handle tasks at any given point of time.
     * The following is the syntax for the fork() method:
         child_process.fork(modulePath[,args][,options])
 
@@ -484,16 +530,13 @@ const properties = require("./location/of/the/module")
         - Calling the next middleware
 
 27. What are global objects in Node.js?
-    * Global objects are the objects with a scope that is accessible across all
-    of the modules of the Node.js applcations.
+    * Global objects are the objects with a scope that is accessible across all of the modules of the Node.js applcations.
     * There will not be any need to include the objects in every module.
     One of the object is declared as global.
-    * Hence this is done to provide any functions, strings, or objects access
-    across the applicatoins.
+    * Hence this is done to provide any functions, strings, or objects access across the applicatoins.
 
 28. Why is assert used in Node.js?
-    * Assert is used to explicitly write test cases to verify the working of a
-    piece of code.
+    * Assert is used to explicitly write test cases to verify the working of a piece of code.
     * The following code snippet denotes the usage of  assert:
         var assert = require('assert');
         function add(x, y){
@@ -504,8 +547,7 @@ const properties = require("./location/of/the/module")
         assert(result === 9, '4 summed with 5 is 9');
 
 29. What are stubs in Node.js?
-    * Stubs are simply functions that are used to assess and analyze individual
-    component behavior.
+    * Stubs are simply functions that are used to assess and analyze individual component behavior.
     * When running test cases, stubs are useful in providing the details of 
     the functions executed.
 
@@ -534,17 +576,14 @@ const properties = require("./location/of/the/module")
 33. What is the use of the connect module in Node.js?
     * The connect module in Node.js is used to provide communication between
     Node.js an the HTTP module.
-    * This also provides easy integration with ExpressJS, using the middleware
-    modules.
+    * This also provides easy integration with ExpressJS, using the middleware modules.
 
 34. What are streams in Node.js?
     * Streams are a set of data entities in Node.js. These can be considered
     similar to the working of strings and array objects.
     * Streams are used for continous read/write operations across a channel.
-    But, if the channel is not available, then all of the data cannot be pushed
-    into the memory at once.
-    * Hence using stream will make it easy to process a large set of data in a
-    continuous manner.
+    But, if the channel is not available, then all of the data cannot be pushed into the memory at once.
+    * Hence using stream will make it easy to process a large set of data in a continuous manner.
 
 35. What are the types of streams available in Node.js?
     Node.js supports variety of streams, namely:
@@ -559,9 +598,8 @@ const properties = require("./location/of/the/module")
     * To launch REPL, a simple command called 'node' is used.
     * After this JS commands can be typed directly into command line.
 
-37. What is meant by tracing Node.js?
-    * Tracing is a methodology used to collect all of the tracing information
-    that gets generated by V8, the node core, and the user space code.
+37. What do you mean by tracing Node.js?
+    * Tracing is a methodology used to collect all of the tracing information that gets generated by V8, the node core, and the user space code.
     * All of these will be dumped into a long file and are very useful to
     validate and check the integrity of the information being passed.
 
@@ -590,8 +628,7 @@ const properties = require("./location/of/the/module")
     * Hashing
 
 41. What is a passport in Node.js?
-    * Passport is widely used middleware present in Node.js. It is primarily used
-    for authentication, and it can easily fit inot any ExpressJS based web applications.
+    * Passport is widely used middleware present in Node.js. It is primarily used for authentication, and it can easily fit into any ExpressJS based web applications.
     * With every application created, it will require unique authentication
     mechanisms.
     * This is provided as single modules by using passport, and it becomes
@@ -644,5 +681,7 @@ const properties = require("./location/of/the/module")
 
 47. Why do you think you are the right fit for this node.js role?
     * Job description
-    * The answer can be elaborated with how your interests align with the 
-    technology, job, and the company.
+    * The answer can be elaborated with how your interests align with the technology, job, and the company.
+
+Read More : https://medium.com/capital-one-tech/node-js-control-flow-an-overview-68f76ef750c3
+*/
