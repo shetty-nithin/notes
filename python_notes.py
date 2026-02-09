@@ -20,7 +20,7 @@
 
 
     Data Structure     |     Ordered?           |             Example           |       Mutable?
-    ----------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------
          List          |        Yes             |          [1, 2, 3]            |         Yes
          Tuple         |        Yes             |          (1, 2, 3)            |            No
          String        |        Yes             |          "Nithin"             |            No
@@ -413,6 +413,83 @@ Output:
 | Bob      | Alice   |
 | Carol    | Alice   |
 | Dave     | Bob     |
+
+
+11. File handling
+------------------
+file = open("file path/file.txt", "w")
+file.write("Hello World!!")
+file.close()
+
+modes:
+    r -> read mode -> throws error if doesnt exists
+    w -> write mode -> creates if doesnt exists and overwrites if exists.
+    a -> append mode -> adds data to the end of the file without deleting the current data.
+    r+ ->   read/write mode -> allows you to both read and write from/to the same file.
+
+with open("file path/file.txt", "r") as file:
+    content = file.read()
+    print(content)
+
+with open("file path/file.txt", "r") as file:
+    for line in file:
+        print(line.strip()) # strip removes the new line character
+
+
+import os
+if os.path.exists("path/file.txt"):
+    with open("file path/file.txt", "r") as file:
+        for line in file:
+            print(line.strip())
+else:
+    print("File not found!")
+
+
+import json
+
+user_config = {
+    "model": "RandomForest",
+    "params": {"n_estimators": 100, "depth": ₹0}
+}
+
+with open("file path/config.json", "w") as f:
+    json.dum(user_config, f, indent=4)
+
+with open("file path/file.json", "r") as f:
+    loaded_data = json.load(f)
+
+print(loaded_data["model"])
+
+
+import pandas as pd
+
+data = {'Product': ['A', 'B'], 'Price': [1200, 800]}
+df = pd.DataFrame(data)
+
+df.describe() # Gives count, mean, max, min, std
+
+
+
+12. try-catch
+--------------
+
+try:
+    file = open("file_path/file.txt", "r")
+except FileNotFoundError:
+    print("File doesnt exists!")
+else:
+    print("File found successfully!")
+finally:
+    print("Always runs!!")
+
+
+
+
+
+
+
+
+
 
 """
 
