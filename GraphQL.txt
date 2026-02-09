@@ -1,0 +1,59 @@
+---------GraphQL----------------
+
+1. This is one of the way to for clients to talk to servers.
+
+2. Other ways to talk to the server are HTTP/OpenAPI_spec/TRPC
+
+3. Why GraphQL is best over rest of the ways?
+      - It sends a fewer requests to the backend
+      - Data retrieval is client side defined.
+      - Strongly typed.
+
+4 .How to define the GraphQL request?
+      - Field
+      - Arguments
+      - Queries (like GET)
+      - Mutations (like POST)
+
+5. Example of a schema:
+      type user {
+             id: ID!
+             email: string!
+             firstName: string!
+             lastName: string!
+      }
+
+      type Query {
+             getUser(id: ID!): User
+      }
+
+      input CreateUserInput {
+             email: string!
+             firstName: string!
+             lastName: string!                          
+      }
+
+      type Mutation {
+             createUser(input: CreateUserInput!): User!
+      }
+
+      where input => Special kinds of type that are only used for passing the data to the mutation
+            type => defines the shape of an object that we can fetch from the backend
+               ! => non nullable value
+
+6. Rather than we writing differnt HTTP end points, we write all our logic inside the "root" resolver as a objects, the we give this to the graphqlHTTP api
+
+const root = {
+      getUser: () => {}
+      createUser: () => {}
+}
+
+const app = express();
+app.use("./graphql", graphqlHTTP({
+      schema: schema,
+      rootValue: root,
+      graphiql: true // graphiql is the postman like UI to check the routes
+}))
+
+7. Either we can use curl/fetch/axio to get/put the data from the client to/from the db. Or we can auto generate
+   the client using available libraries.

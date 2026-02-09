@@ -1,0 +1,64 @@
+--------Docker and Containerization-----------------
+1. Why do we need this?
+    - Easy to setup locally (while contributing to the OS project, we may need to set it up locally)
+    - Local setup of DBs/other services
+    - Good to know how to deploy using Docker
+    - Path to container orchestration
+    - Automatic restart (pm2?)
+    - Much more light weight than full machines, much easier to orchestrate 
+    - The code is containerized. It means, the code comes in a container. If we destroy the container, all the things goes away.
+2. Properties of Docker
+    - Containerization involves building self-sufficient software packages that perform consistently, regardless of the machines(OS)
+      they run on.
+    - Its basically taking the snapshot of a machine, the filesystem and letting you use and deploy it as a construct.
+3. Image vs Container
+    - image is the final file generated after the development. It may be of 1GB more or less. This image contains all the dependencies
+      such as postgres, node, npm, file system etc..
+    - When we start this file i.e., when we run the docker, it will run on some port. And that is a container. Container is basically an image
+      but in execution. Image is created only once but the container can be created multiple times. Image are pushed somewhere(docker hub) only once.
+4. Docker has 3 parts.	
+    - Docker Engine: Images will be created here. 
+    - CLI (Command Line Interface): To interact with the docker engine
+    - Docker hub: To store the images (this is like a git hub). Docker hub is one of the container registry (container registry is like git)
+5. Dockerfile:
+    - Dockerfile is the one which describes what all are dependencies needs to be there, how to run?, what the image should look like?
+6. How to create a dockerfile?
+    - Start from the base image (ubuntu/alpine/node) => FROM node:18
+    - Copy over the file which we want to present in the container(frontend and backend code) => COPY . .
+    - Add all the software to install => RUN npm install etc..
+    - Build the project => RUN npm run build
+    - Expose the right set of ports => EXPOSE 3000
+    - Start the process
+7. How to Run?
+    - build:  
+        Syntax => docker build -t  <image_name> <location>  
+        Example => docker build -t  express-app1 .
+    - to check images:
+        docker images
+    - run:
+        docker run -p 3000:3000 express-app1
+        (mentioning -p 3001:3000 is mandatory. Here 3001 is the port of the host machin and the port 3000 is of container)
+8. Some other docker commands
+    - docker images : to check the images
+    - docker ps     : shows all the container running on the host machine
+    - docker kill      
+9. Layers in docker
+    - Layers are a result of the way docker images are build. Each step in a dockerfile creates a new "layer" thats essentially a diff of the filesystem changes since
+      the last step.
+
+
+------------Advance Docker----------------
+1. How to use the docker for real world deployement.
+    - Create an account and sign up
+    - Create a repository
+    - Login using docker CLI: docker Login
+    - Build an image: docker build -t <username>/<reponame>
+    - Push the image: docker push <usernam>/<reponame>
+2. Volumes in Docker:
+    - Volumes are used to persiste the data across the restart. Specifically usefull for the databases.
+    - Command to create: docker volume create <volumeName>
+    - Command to run: docker run -v <volumeName>/data/db -p 3000:3000 <imageName>
+3. Networks:
+    - To talk to different container inside the host machine
+    - Command to create: docker network create <networkName>
+    - docker run --name network1 --network network2 -d 

@@ -1,0 +1,50 @@
+----------NEXT.JS----------
+
+1. Why?
+    * Waterfalling: 
+        When we go to a website, we hit the server and we get back an index.html file with js script with react code.
+        Then we hit the backend server to get the user details and it will be render on the index.html file.
+        Till this point there will be flash for micro second on the screen. This is not optimal and it is called waterfalling.
+
+    * Not SEO optimised:
+        While scrapping the website for the user for thier search, search engine checks only in the index.html file. It doesnt
+        run the js file. Since index.html is empty, website will not be come in the search result.
+    * React will not work in a place where js cant run. ex: email
+
+    To solve all these 3 main problem, first render should happen in the server itself. This is called server side rendering.
+
+2. SSR: Server Side rendering
+    * The process of doing initial render on the server.
+    * All the following rendering because of the state updates happens in the client side.
+    * Can use other server components, divs and spans.
+    * Can import libraries only on the server to keep small budle size.
+    * Have complete access to backend.
+    * Can read from a file.
+
+    * Doesnt have access to browser construct such as local storage, window etc...
+    * Cannot run hooks, doesnt understand states.
+    * It redners only once on the server.
+    * Lets use write HTTP backend rotue. Express.js is not required.
+
+3. React.js is the subset of Next.js
+
+4. Routing in next.js
+    All the routes should be created as a file inside the folder "pages".
+    Folder Structure:
+    - scr
+        - pages
+            * signin.tsx          ---> /signin
+            * signout.tsx         ---> /signout
+            * homepage.tsx        ---> /homepage
+            * courses
+                - allcourses.tsx  ---> /courses/allcourses
+                - mycourses.tsx   ---> /courses/mycoruse
+            * api                 ---> We can write the whole backend here
+
+5. How the initial rendering will happend from the Server?
+    Along with the defining the function, if the any of the route has "export async function getServerSideProps(){}", then the control
+    goes to this function before even creating the .html file
+
+6. How to initialize the new NEXT.jx repository?
+    * npx create-next-app@latest
+    * It will ask for bunch of options. Select the appropriate.
