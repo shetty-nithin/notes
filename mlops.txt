@@ -1,0 +1,245 @@
+                                       Machine Learning System Optimization
+                                         (System + Performance + Cost)
+                                      ====================================
+
+MLOPs is not about ML model, its about making the ML model work at scale.
+A model that is 99% accurate and takes 10s to predict is useless.
+
+1.  Amdahl's Law and Scalability:
+-----------------------------------------------
+    Definition: Amdahl's Law calculates the theoretical speedup of a task when only part of it is parallelized.
+    Implication: The speedup is limited by the sequential part of the algorithm.
+    Example: If 20% of ML training process is inherently serial, even with the infinite number of processor, maximum speedup will never exceed 5X (i.e., 1/0.2 = 5).
+
+2.  Data parallelism vs Task parallelism:
+-----------------------------------------------
+    Data Parallelism: The dataset is partitioned. Eevery worker has a copy of the model and trains on its specific shard of data. Gradients are then aggregated.
+    Task Parallelism: The model itself is partitioned. Different workers are responsible for computing different layers of segement of the model.
+
+    The Parameter Server (PS) architecture:
+        Role: Acts as central repository for the model weights.
+        Interaction: Workers pull current weight from the PS, compute gradient on local data, and push update back to the PS.
+        Bottleneck: 
+            Network Bandwidth: As the workers increase, the PS becomes a communication bottleneck.
+            Synchronization: Synchronuous updates wait for the slowest worker.
+        Solution: Use All-Reduce architectures, where the worker communicates with the neighbour instead of the Central Server, distributing the communication load.
+
+3.  Opimizing Code and Hardware(GPGPUs & FPGAs)
+-----------------------------------------------
+    GPU architecture and SIMT:
+        SIMT: Single Instruction Multe Threading: Thousands of lightweight threads execute the same instruction on different data.
+        Warps: Threads are grouped into warps (usually 32 threads). If the thread within the warp takes the different execution path, it leads to "warps divergence" which kills performance.
+        Memory Heirarchy: GPU registers and shared memory are extremely fast. Naive implementation that only use Global Meomry will be bottlenecked by latency.
+    Reduced Precision and FPGAs:
+        Low Precision: Using 16-bit fixed point airthmetic instead of 32 bit floading point can drastically speedup training reference with minimal loss in efciency.
+        FPGA advantages: 
+
+4.  Model Compression for Edge Devices:
+-----------------------------------------------
+    When deploying to device with limited power (phone, IoT), we must compress the model.
+    Quantization: Converting 32 bit weights to lower bit width.
+    Pruning: Removing the redundant weights or filters.
+    Knowledge Distillation:
+
+5.  When we are training a model on 100 nodes and one node is consistenly slower. How does this affects the synchronous and asynchronous training?
+    -> In synchronous training, the entire cluster waits for  the slower node, wasting resources. In asynchronous training, workers dont wait, but the model may become unstablebecause                         because workers might update the PS using "stale" gradient.
+
+6.  CNN is running slowly on GPU despite high TFLOPs. Why?
+    -> It is likely a memory wall issue or naive kernel launches. Techniques like compier-based layer fusion reduce the need to write intermediate results to slow Global Memory.
+
+7.  Distributed K-Means speedup: Compute the approximate speedup for K-Means using MapReduce with 100 million points, k=10, and p=100 processors.
+    -> Speedup = T_seq / T_par
+
+                                           ============================================================================
+                                                                        Class Material
+                                           ============================================================================
+
+Traditional ML view (wrong for industry):
+        Data -> Train Model -> Deploy -> Done
+
+Enterprise / Real world ML view (correct):
+        Data -> Train -> Validate -> Deploy -> Monitor -> Retrain -> Scale -> Optimize -> Repeat
+
+
+PART-1: Cost Model of Machine Learning (Foundation)
+---------------------------------------------------
+ML cost has two phases:
+    1. Training Phase    -> Compute + Memory + communication
+       This cost is dominated by
+            * Algorithmic Complexity
+            * Parallelism Limits
+            * Hardware utilization
+
+    2. Interface Phase   -> Latency + Throughput + Energy
+        This cost is about response time, throughput and deployment platform
+
+PART-2: Parallel Computing Foundation
+-------------------------------------
+Scaling ML is hard.
+
+    1. Sequential Machine Model (Baseline)
+        CPU Follows: Fetch -> Decode -> Load -> Execute -> Store
+        Ideal Cycles Per Instruction = 1
+
+    2. Pipelining (Hardware -> Software)
+        Hardware pipeline: Increases throughput but DOES NOT reduce latency of one instruction
+        Software pipeline (Important for ML system): Break ML workflow into stages. Overlap execution.
+            Load Data -> Preprocess -> Infer -> Postprocess
+
+            Instead of:
+                Complete_1 -> Complete_2 -> Complete_3
+
+            We do:
+                While stage_2 runs stage_1 prepares next batch
+
+PART-3: Parallel Programming Models
+-----------------------------------
+    1. Data Parallelism: Same program but different data.
+        Ex: CNN Training, K-Means, Logistic Regression
+
+        Each processor:
+            * works on subset of data
+            * produces partial result
+
+    2. Task Parallelism: Different task in parallel.
+        Ex: Feature Extraction | Model Training | Logging
+
+        Problems: Dependencies, Load Imbalance, Poor scalability
+
+    3. Seepdup & Amdahl's Law
+                                1              
+            Speedup(p) = ----------------      where, f = serialized fraction
+                                (1 - f)
+                            f + -------
+                                   p
+        Key consequences:
+            * Even 10-20% of serialization kills scalibility
+            * Infinite processor != Infinite speedup
+
+
+            Ex: 20% serialization, 100 processors
+                
+                    Speedup = 1 / (0.2 + 0.8/100) = 4.8
+
+PART-4: Distributed ML architecture
+-----------------------------------
+    1. Parameter Server Architecture
+           * Workers           -> compute gradients
+           * Parameter Servers -> store weights
+
+           Training Loop:
+                * Worker pulls parameters
+                * Compute gradient
+                * Pushes updated gradient
+                * PS udpates model
+
+           Bottleneck:
+                * Network Congestion
+                * PS hotspot
+                * Serialization at PS
+
+           Optimizations:
+                * Gradient Compression
+                * Batching
+                * Local Updates 
+                * Sharding Parameters
+
+    2. All-Reduce Architecture (Modern Standard)
+            * No central server
+            * Each node shares gradient peer-to-peer
+            * Each node uses ring or tree topology
+
+        Advantages:
+            * Scales better
+            * No single bottleneck 
+            * Better bandwidth usage
+
+PART-5: Memory System & Locality
+--------------------------------
+    This is why code matters more than algorithm.
+
+    1. Memory Hierarchy
+
+            Level                           Speed                           Size
+        --------------                 ----------------               -----------------
+           Register                        Fastest                          Tiny
+       Cache (L1/L2/L3)                     Fast                            Small
+             RAM                           Medium                           Large
+            Disk                            Slow                            Huge
+           Network                        Very Slow                         Huge
+
+    2. Locality of Reference
+            * Temporal Locality: recently used  -> used again
+            * Spatial Locality: Nearby memory -> accessed together
+    
+    3. Matrix Multiplication Case Study
+            * IJK version
+                * Poor cache reuse
+                * Frequent memory misses
+            * IKJ version
+                * Reuses rows of A
+                * Reuses C in cache
+
+PART-6: Multi-Core & GPU Computing
+----------------------------------
+    1. Multi-Core CPUs
+        * Few powerful cores
+        * Large caches
+        * Good for control-heavy tasks
+
+        Problems:
+            * Cache contention
+            * False sharing
+            * Limited threads
+
+    2. GPUs
+        * Thousands of threads
+        * Simple cores
+        * High latency, high throughput
+
+        Designed for:
+            * Arithmetic-heavy
+            * Data-parallel tasks
+
+        GPU Programming Models:
+            * CUDA
+            * OpenCL
+            * OpemMP
+
+        Key GPU Concepts:
+            * Kernel
+            * Thread block
+            * Shared memory
+            * Global memory
+
+PART-7: GPU Optimization Techniques
+-----------------------------------
+    1. Loop Tiling:
+        Break computation into blocks that fit in cache / shared memory
+
+        Used in:
+            * CNNs
+            * Matrix multiplication
+
+        Reduces:
+            * Global memory access
+            * Cache misses
+
+    2. Kernel Fusion: Merge multiple kernesl into one
+
+PART-8: Model Size & Edge Deployment
+------------------------------------
+    1. Quantization
+        Type    ->        When        ->  Accuracy
+        PTQ     ->   After Training   ->   Medium
+        QAT     ->   During Trianing  ->    High
+
+    2. Pruning
+        * Unstructured
+                * Removes individual weights
+                * Hard for Hardware
+        * Structured
+                * Removes filters/channels
+                * Hardware-friendly
+    3. Knowledge Ditillation
+        
