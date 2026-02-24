@@ -58,7 +58,52 @@ Traditional ML view (wrong for industry):
         Data -> Train Model -> Deploy -> Done
 
 Enterprise / Real world ML view (correct):
-        Data -> Train -> Validate -> Deploy -> Monitor -> Retrain -> Scale -> Optimize -> Repeat
+        Data -> Train Model -> Validate -> Deploy -> Monitor -> Retrain -> Scale -> Optimize -> Repeat
+
+Pipelining: Pipelining is a technique where a task is split into multiple stages, and different stages are executed in parallel on different data items.
+Pipelining increases the throughput by overlapping execution of independent stages, but does not reduce the latency of single task.
+
+Training:
+    Process of learning model parameters (wieghts) from data by repeatedly making predictions, measuring error (loss), and updating the model using an optimization algorithm.
+Inference:
+    Process of using a trained model to make predictions on new, unseen data.
+Latency:
+    Time taken to process the single request from input arival to output generation.
+            Latency = Response time per request
+Throughput:
+    Number of request processed per unit time.
+        Throughput = Number of requests/Time
+
+Map-Reduce:
+    This is distributed programming model for processing large datasets by splitting work into two phases. Map and Reduce.
+        * Map phase:
+            Each worker processes a chunk of data and produces a key-value pair.
+        * Reduce phase:
+            Aggregate values per key.
+
+All-Reduce:
+    This is a collective communication operation where all nodes contribute data and receive the reduced result.
+        * Ring All-Reduce
+        * Tree All-Reduce
+
+
+GPU Programmaings:
+    Program written on GPU, exploiting massive parallelism to accelerate computation-heavy workload.
+    * Thousandas of lightweight cores
+                Kernel (A function that runs on GPU)
+                            |
+                Thread: Smallest execution unit
+                            |
+                Block: Groupd of threads (Each blocks contains 32 threds, known as WARP)
+                            |
+                Grid: Collection of blocks
+
+Model Compression:
+    Is the process of reducing the model size, memory footprint, and computation cost while preserving as much accuracy as possible.
+
+
+
+
 
 
 PART-1: Cost Model of Machine Learning (Foundation)
@@ -97,14 +142,27 @@ PART-3: Parallel Programming Models
     1. Data Parallelism: Same program but different data.
         Ex: CNN Training, K-Means, Logistic Regression
 
+        Design Dimension 1:
+            * Centralized Data parellelism:
+                    * One or more Parameter Servers
+                    * Many workers
+            * Decentralized Data Parallelism:
+                    * No central server
+                    * workers communicates peer-to-peer
+                    * Gradient averaged using All-Reduce
+
         Each processor:
             * works on subset of data
             * produces partial result
 
-    2. Task Parallelism: Different task in parallel.
+    2. Task Parallelism (Model Parallelism): Different task in parallel.
         Ex: Feature Extraction | Model Training | Logging
 
         Problems: Dependencies, Load Imbalance, Poor scalability
+
+        Commong Design patterns:
+            * Pipeline Parallelism
+            * Functional Task Parallelism
 
     3. Seepdup & Amdahl's Law
                                 1              

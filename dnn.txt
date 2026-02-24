@@ -1,0 +1,503 @@
+                         ============================================ 
+                                    Deep Neural Networks
+                         ============================================ 
+
+
+
+One-Hot Encoding:
+    One-hot encoding is a technique used to convert categorical data (words or labels like "Red," "Blue," or "Dog") into a numerical format that machine learning algorithms can understand.
+
+Softmax activation:
+    This is mathematical function typically used as a final layer of a neural network for multi-class classification tasks.
+
+
+
+
+
+
+
+Module 1: Introduction to Deep Neural Networks
+----------------------------------------------
+
+    0. Core components of DL problem:
+        * The data that we can learn from
+        * A model of how to transform the data
+        * An objective function that quatifies how well or bad the model is doing
+        * An algorithm to adjust the model's parameters to optimize the object function.
+
+    1. Artificial Intelligence (AI), Machine Learning (ML), and Deep Learning (DL)
+        * Artificial Intelligence (AI): Broad field aiming to create systems that mimic human intelligence (reasoning, planning, learning).
+        * Machine Learning (ML): Subset of AI where systems learn patterns from data without being explicitly programmed.
+        * Deep Learning (DL): Subset of ML using multi-layer neural networks to learn hierarchical feature representations.
+
+        Relationship:       AI ⊃ ML ⊃ DL
+
+    2. Why Deep Learning?
+        * Handles high-dimensional data (images, audio, text)
+        * Automatic feature extraction
+        * Superior performance in vision, speech, NLP
+        * Scales with data and compute
+
+    3. Biological Inspiration
+        * Inspired by the human brain
+        * Neurons receive signals, apply weights, sum inputs, and fire
+
+    4. Artificial Neuron Model
+        * Inputs: x₁, x₂, …, xₙ
+        * Weights: w₁, w₂, …, wₙ
+        * Bias: b
+        * Output:
+                y = summation of (wᵢxᵢ + b)
+
+    5. Types of Learning
+        * Supervised Learning: Labeled data (classification, regression)
+        * Unsupervised Learning: No labels (clustering, dimensionality reduction)
+        * Reinforcement Learning: Agent interacts with environment
+
+    6. Neural Network Architectures
+        * Single-layer NN
+        * Multi-layer NN
+        * Feedforward NN
+        * Recurrent NN
+        * Convolutional NN
+
+    7. Challenges in Deep Learning
+        * Vanishing/exploding gradients
+        * Overfitting
+        * High computational cost
+        * Need for large labeled datasets
+
+
+Module 2: Artificial Neural Networks & Perceptron
+-------------------------------------------------
+
+    1. Perceptron Model
+        * Simplest neural network
+        * Used for binary classification
+
+        Mathematical model:   y = sign(w·x + b)
+
+    2. Decision Boundary
+        * Linear separator (hyperplane)
+        * Works only for linearly separable data
+
+    3. Perceptron Learning Algorithm
+        1. Initialize weights and bias
+        2. For each training example:
+           * Predict output
+           * Update weights if misclassified
+
+        Update rule:
+                        w = w + η(y - \hat{y})x
+                        b = b + η(y - \hat{y})
+
+    4. Limitations of Perceptron
+        * Cannot solve XOR problem
+        * Only linear decision boundaries
+
+    5. Multi-Layer Perceptron (MLP)
+        * Overcomes XOR limitation
+        * Uses hidden layers and non-linear activations
+
+
+Module 3: Linear Neural Networks – Regression
+---------------------------------------------
+
+    1. Regression Problem
+        * Predict continuous-valued outputs
+          Examples: house price prediction, temperature forecasting
+
+    2. Linear Regression Model
+                                y = w·x + b
+
+    3. Loss Functions
+        * Mean Squared Error (MSE):
+                                    L = 1/n Summation of(y - \hat{y})^2
+
+    4. Gradient Descent
+        * Optimization technique to minimize loss
+
+        Steps:
+            1. Compute gradient of loss
+            2. Update parameters:
+                                w = w - η(∂L/∂w)
+
+    5. Variants of Gradient Descent
+        * Batch Gradient Descent
+        * Stochastic Gradient Descent (SGD)
+        * Mini-batch Gradient Descent
+
+    6. Learning Rate
+        * Too small → slow convergence
+        * Too large → divergence
+
+
+Module 4: Linear Neural Networks – Classification
+-------------------------------------------------
+
+    1. Binary Classification
+        * Output is class label (0/1)
+
+    2. Logistic Regression
+        * Uses sigmoid activation:
+                                  σ(z) = 1/(1 + e^{-z})
+
+    3. Decision Rule
+        * If probability ≥ 0.5 → class 1
+        * Else → class 0
+
+    4. Loss Function
+        * Binary Cross-Entropy Loss:
+                                ℓ(w; x, y) = - [ y * log(ŷ) + (1 - y) * log(1 - ŷ) ]
+        * Categorical Cross-Entropy Loss:
+                                J(W) = - (1/N) * Σ_{i=1 to N} Σ_{k=1 to K} [ y_k^(i) * log(ŷ_k^(i)) ]
+
+    5. Softmax for Multi-class Classification
+                                        σ(zᵢ) = e^{zᵢ} / Σ{j=1 to K} e^{zⱼ}
+
+    6. Evaluation Metrics
+        * Accuracy
+        * Precision
+        * Recall
+        * F1-score
+        * Confusion matrix
+    
+    7. Numerical
+        * Matrix Formulation:
+            X = [1 1; 1 2; 1 3; 1 4]
+            y = [0; 0; 1; 1]
+            w = [w0; w1]
+
+        * Hyperparameters & Initialization:
+            η = 0.5
+            N = 4
+            w(0) = [0; 0]
+
+        * Functions:
+            Sigmoid function: σ(z) = 1 / (1 + e^-z)
+            Loss function: ℓ(w; x, y) = -[y log(ŷ) + (1 - y) log(1 - ŷ)]
+
+        * Initial Predictions:
+            For w(0) = [0 0]^T
+            For all examples: z = 0 => ŷ = σ(0) = 0.5
+            ŷ(0) = [0.5; 0.5; 0.5; 0.5]
+
+        * Randomly select first example:
+            (x(1), y(1)) = ([1 1],0)
+
+            Step 1 - Forward pass:
+                z(1) = x(1)w(0) = [1, 1] [0; 0] = 0
+                ŷ(1) = σ(0) = 0.5
+
+            Step 2 - Compute error:
+                error = ŷ(1) - y(1) = 0.5 - 0 = 0.5
+
+            Step 3 - Compute gradient:
+                ∇ℓ = (ŷ(1) - y(1))x(1) = 0.5 [1; 1] = [0.5; 0.5]
+
+            Step 4 - Update weights:
+                w(1) = w(0) - η∇ℓ
+                = [0; 0] - 0.5 [0.5; 0.5] = [-0.25; -0.25]
+
+        * Randomly select second example:
+            (x(3), y(3)) = ([1 3], 1)
+
+            Step 1 - Forward pass:
+                z(3) = x(3)w(1) = [1 3] [-0.25; -0.25] = -1.0
+                ŷ(3) = σ(-1.0) = 1 / (1 + e^1.0) ≈ 0.269
+
+            Step 2 - Compute error:
+                error = 0.269 - 1 = -0.731
+
+            Step 3 - Compute gradient:
+                ∇ℓ = -0.731 * [1; 3] = [-0.731; -2.193]
+
+            Step 4 - Update weights:
+                w(2) = [-0.25; -0.25] - 0.5 * [-0.731; -2.193] = [0.116; 0.847]
+
+
+Module 5: Deep Feedforward Neural Networks (DFNN)
+-------------------------------------------------
+    In DFNN, information flows forward through non-linear transformations.
+    Non-Linear activation function enables learning  complex boundaries/patterns.
+    Vanishing Gradient:
+        This occurs during the back propagation when the gradients (signals used to udpate weights) become smaller and smaller as they move backward through the layers of neural network.
+        This usually happens when using Sigmoid or Tanh as activation function.
+    Gradient Clipping: To avoid exploding of gradients.
+            
+                Sigmoid, Tanh  -> ReLU  -> Leaky ReLU
+
+    1. Architecture
+        * Input layer
+        * Multiple hidden layers
+        * Output layer
+
+    2. Activation Functions
+        * Sigmoid
+        * Tanh
+        * ReLU
+        * Leaky ReLU
+        * Softmax
+
+    3. Backpropagation Algorithm
+        Steps:
+            1. Forward pass
+            2. Compute loss
+            3. Backward pass (chain rule)
+            4. Update weights
+
+    4. Vanishing Gradient Problem
+        * Gradients shrink in deep networks
+        * Solved using ReLU, proper initialization
+
+    5. Regularization Techniques
+        * L1 & L2 regularization
+        * Dropout
+        * Early stopping
+
+    6. Weight Initialization
+        * Random initialization
+        * Xavier initialization
+        * He initialization
+
+
+Module 6: Convolutional Neural Networks (CNN)
+---------------------------------------------
+    CNN is a DNN designed specifically to process grid-like data such as image.
+    Unlike DFNN, CNN preserves spatial relationships between pixels using convolution operations.
+    CNN automatically learns the spatical features like edges, textures, shapes, and objects.
+
+    Stride:
+        It is the number of pixels by which the convolution filter moves over the input image at each step
+                | Stride       | Effect                                  |
+                | ------------ | --------------------------------------- |
+                | Small stride | Larger feature map, more details        |
+                | Large stride | Smaller feature map, faster computation |
+
+    Padding:
+        It means adding extra pixels (usually zeros) around the border of the input image before convolution.
+
+    Receptive Field:
+        The receptive field of a neuron is the region of the input image that influences that neuron’s output.
+
+
+    0. Architecture:
+        Input -> Convolution -> Activation -> Pooling -> Convolution -> Pooling -> Fully Connected -> Output
+
+    1. Motivation for CNNs
+        * Efficient processing of image data
+        * Preserves spatial information
+
+    2. CNN Building Blocks
+        a) Convolution Layer
+            * Uses filters/kernels
+            * Produces feature maps
+
+        b) Stride and Padding
+            * Stride: step size
+            * Padding: preserves spatial size
+
+        c) Activation Function
+            * Typically ReLU
+
+        d) Pooling Layer
+            * Max pooling
+            * Average pooling
+            * Reduces spatial dimensions
+
+    3. Fully Connected Layer
+        * Flattens feature maps
+        * Performs classification
+
+    4. CNN Architecture Flow
+            Input → Conv → ReLU → Pool → Conv → Pool → FC → Output
+
+    5. Advantages of CNN
+        * Parameter sharing
+        * Sparse connectivity
+        * Translation invariance
+
+    6. Applications
+        * Image classification
+        * Face recognition
+        * Object detection
+        * Medical image analysis
+
+
+Module 7: Recurrent Neural Networks (RNN)
+-----------------------------------------
+
+    1. Motivation for RNN
+        * Many real-world problems involve sequential data
+        * Order of data matters
+        * Feedforward neural networks assume independence between inputs
+        * RNNs introduce memory to handle sequences
+
+        Examples:
+            * Time series data
+            * Speech recognition
+            * Natural language processing
+
+    2. RNN Architecture
+        * Same neural network is applied repeatedly at each time step
+        * Hidden state acts as memory of past inputs
+
+        Hidden state equation:
+                                hₜ = f(Wₓₕ xₜ + Wₕₕ hₜ₋₁ + bₕ)
+
+        Output equation:
+                                yₜ = Wₕᵧ hₜ + bᵧ
+
+        Where:
+            xₜ → input at time t
+            hₜ → hidden state
+            yₜ → output
+            f → activation function (tanh/ReLU)
+
+    3. Unrolling the RNN
+        * RNN can be unfolded across time steps
+        * Shows how information flows from past to present
+        * Helps understand training and gradient flow
+
+    4. Training RNN – Backpropagation Through Time (BPTT)
+        * Extension of backpropagation
+        * Errors are propagated backward through time steps
+        * Gradients are summed across all time steps
+
+    5. Problems with RNN
+        * Vanishing gradient problem
+        * Exploding gradient problem
+        * Difficulty learning long-term dependencies
+
+    6. Applications of RNN
+        * Language modeling
+        * Speech recognition
+        * Time series forecasting
+        * Sequence prediction
+
+
+Module 8: Attention Mechanism
+-----------------------------
+
+    1. Motivation for Attention
+        * RNNs compress entire input sequence into one vector
+        * Information loss for long sequences
+        * Attention allows model to focus on important parts of input
+
+    2. Basic Idea of Attention
+        * Not all input elements are equally important
+        * Attention assigns different weights to different inputs
+    
+    3. Components of Attention
+        * Query (Q)
+        * Key (K)
+        * Value (V)
+
+    4. Attention Score Calculation
+        Dot-product attention score:
+            score(Q, K) = Q · K
+
+    5. Scaled Dot-Product Attention
+        Attention(Q, K, V) = softmax((QKᵀ) / √dₖ) V
+            Where dₖ is the dimension of the key vector
+
+    6. Types of Attention
+        * Additive attention
+        * Multiplicative attention
+        * Self-attention
+
+    7. Advantages of Attention
+        * Handles long-range dependencies
+        * Improves performance in NLP tasks
+        * Allows parallel computation
+
+
+Module 9: Transformer Architecture
+----------------------------------
+
+    1. Why Transformers?
+        * Removes recurrence and convolution
+        * Entirely based on self-attention
+        * Enables parallel processing
+        * Faster training and better performance
+
+    2. Transformer Components
+        a) Input Embedding
+            Converts input tokens into dense vectors
+        b) Positional Encoding
+            Adds information about word positions
+            Uses sine and cosine functions
+        c) Multi-Head Self-Attention
+            Multiple attention heads
+            Each head learns different relationships
+        d) Feed Forward Network (FFN)
+            Two fully connected layers
+            ReLU activation in between
+        e) Residual Connections and Layer Normalization
+            Improves gradient flow
+            Stabilizes training
+
+    3. Transformer Encoder
+        * Stack of identical layers
+        * Used in encoder-only models (e.g., BERT)
+
+    4. Transformer Decoder
+        * Masked self-attention
+        * Encoder–decoder attention
+        * Used in sequence generation
+
+    5. Advantages of Transformers
+        * Parallelism
+        * Better long-term dependency modeling
+        * State-of-the-art NLP performance
+
+    6. Applications
+        * Machine translation
+        * Text summarization
+        * Question answering
+
+
+Module 10: Optimization Techniques in Deep Learning
+---------------------------------------------------
+
+    1. Role of Optimization
+        * Minimize loss function
+        * Improve convergence speed
+        * Efficient parameter updates
+
+    2. Gradient Descent
+        * Updates weights using gradients
+        * Sensitive to learning rate
+
+    3. Momentum-Based Gradient Descent
+        * Accelerates convergence
+        * Reduces oscillations
+
+        Update equations:
+            vₜ = γ vₜ₋₁ + η ∇L
+            w = w − vₜ
+
+    4. AdaGrad
+        * Adaptive learning rates
+        * Suitable for sparse data
+        * Learning rate decreases rapidly
+
+    5. RMSProp
+        * Fixes AdaGrad’s learning rate decay
+        * Uses moving average of squared gradients
+
+    6. Adam Optimizer
+        Combines Momentum and RMSProp
+        Most widely used optimizer
+
+        Steps:
+            * First moment estimation (mean)
+            * Second moment estimation (variance)
+            * Bias correction
+
+    7. Comparison of Optimizers
+        * SGD – Simple, but slow convergence
+        * Momentum – Faster, needs tuning
+        * AdaGrad – Good for sparse data, learning rate vanishes
+        * RMSProp – Stable, parameter sensitive
+        * Adam – Fast and robust, higher memory usage
