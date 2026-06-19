@@ -1,0 +1,603 @@
+=================================================================================================
+                            DISTRIBUTED MACHINE LEARNING (DML)             
+=================================================================================================
+
+Q1. What is Distributed Machine Learning, in one sentence?
+A1. DML is an approach to machine learning that spreads computational
+    tasks across multiple processing units (typically a network of
+    computers/GPUs/TPUs) so that datasets, models, or computations too
+    large for a single machine can still be handled efficiently.
+
+Q2. List the six main motivations for using DML, as given in the deck.
+A2. 1. Handling Large Datasets
+    2. Complex Model Architectures
+    3. Speed and Efficiency
+    4. Scalability
+    5. Federated Learning (privacy-sensitive data)
+    6. Cost-Effectiveness
+
+Q3. Give a real-world example tying "large datasets" to a DML solution.
+A3. Netflix generates massive, continuously growing user-interaction
+    data for recommendations. It uses Apache Spark for distributed
+    data processing and TensorFlow for distributed training, with the
+    dataset partitioned and processed across a cluster of machines.
+
+Q4. Why do complex models like BERT or GPT need distributed training?
+A4. These models have billions of parameters, which exceeds what a
+    single device's memory and compute can support. Training is
+    distributed across GPUs/TPUs using data parallelism or model
+    parallelism, with each node handling part of the data or part of
+    the model.
+
+Q5. How does DML address the "speed and efficiency" problem? Give an
+    example.
+A5. Training on a single machine can take days or weeks. By
+    distributing work across high-performance clusters, training time
+    can drop from weeks to hours. Example: Tesla distributes training
+    of autonomous-vehicle models across clusters so they can be
+    updated quickly using real-time sensor data.
+
+Q6. Why is "cost-effectiveness" listed as a motivation, when adding
+    more machines sounds more expensive?
+A6. A single very high-performance machine capable of handling huge
+    models/datasets is expensive and is also a single point of
+    failure. Using many commodity machines/nodes in a distributed
+    setup is often cheaper overall and more fault-tolerant than one
+    extremely powerful machine.
+
+Q7. What two single-machine bottlenecks does DML directly solve, per
+    the "large-scale machine learning" slides?
+A7. Memory/storage bottlenecks (cannot host petabyte-level datasets or
+    huge models) and compute/processing bottlenecks (data cleaning,
+    transformation, and gradient computation exceed what one
+    processor can do in reasonable time).
+
+====================================================================
+SECTION B: PARALLEL VS. DISTRIBUTED COMPUTING (FOUNDATIONS)
+====================================================================
+
+Q8. Define Parallel Computing and its key goal.
+A8. Parallel Computing performs multiple computations simultaneously
+    by dividing a task into smaller sub-tasks executed on multiple
+    processors. Key goal: reduce execution time by leveraging
+    concurrency.
+
+Q9. What are the two memory architectures used in parallel computing?
+A9. - Shared Memory: multiple processors access a single shared
+      memory space.
+    - Distributed Memory: each processor has its own memory; they
+      communicate by passing messages.
+
+Q10. Define Distributed Computing and its key goal.
+A10. Distributed Computing is a system where multiple independent
+     computers collaborate to achieve a common goal. Key goal: solve
+     problems by distributing tasks among machines (not necessarily
+     for speed alone — also for scale and resource limits).
+
+Q11. Name the two architectural models for distributed computing.
+A11. - Client-Server Model: one system acts as the server; others are
+       clients.
+     - Peer-to-Peer (P2P): all systems share equal responsibility.
+
+Q12. Give one example each of a parallel programming API and a
+     distributed programming tool.
+A12. Parallel: OpenMP (shared memory), CUDA (GPU programming).
+     Distributed: MPI (Message Passing Interface), Apache Hadoop,
+     Apache Spark.
+
+Q13. In one line, what is the core distinction between "parallel" and
+     "distributed" computing?
+A13. Parallel computing is about doing many computations at the same
+     time (often within one machine or tightly coupled processors) to
+     cut execution time; distributed computing is about multiple
+     independent machines cooperating over a network to jointly solve
+     a problem, often for scale rather than raw speed alone.
+
+====================================================================
+SECTION C: TRAINING STRATEGIES - DATA, MODEL, PIPELINE, HYBRID
+====================================================================
+
+Q14. List the four training strategies covered and describe each in one line.
+A14. - Data Parallelism: each node holds a full copy of the model but
+        a different shard of data; gradients are averaged.
+      - Model Parallelism: the model itself is split across nodes;
+        useful for very large architectures.
+      - Pipeline Parallelism: model layers are split into sequential
+        stages across devices, streaming mini-batches through them.
+      - Hybrid Training: combines multiple strategies to balance
+        memory, communication, and throughput.
+
+Q15. Explain Data Parallelism using the "chefs and recipe" analogy from the slides.
+A15. Each node (chef) uses the same model (recipe) but works on
+     different data batches (ingredients). Each worker computes
+     gradients on its own mini-batch, and these gradients are
+     combined — either averaged via AllReduce or aggregated via a
+     Parameter Server — before the shared weights are updated.
+
+Q16. When is Data Parallelism the right choice?
+A16. When the dataset is large but the model itself fits comfortably
+     in memory on each GPU/node — i.e., the bottleneck is data volume,
+     not model size.
+
+Q17. Explain Model Parallelism using the "car assembly" analogy.
+A17. Like building a car where one team builds the engine and another
+     builds the chassis, the model is split across devices (e.g., by
+     layers or attention blocks), and each device handles a different
+     part. Forward and backward passes require cross-device
+     communication to pass activations and gradients between the
+     partitions, since the parts must coordinate to form one model.
+
+Q18. When is Model Parallelism necessary?
+A18. When the model itself (e.g., GPT, BERT) is too large to fit into
+     a single device's memory — the bottleneck is model size, not
+     data volume.
+
+Q19. Walk through the Pipeline Parallelism example given in the
+     slides with GPU 1 and GPU 2.
+A19. Stage 1 on GPU 1 computes layers 1-4, producing activations A1.
+     Stage 2 on GPU 2 needs A1 before it can compute layers 5-8. So
+     the stages cannot simply run blindly in parallel — data transfer
+     between stages must be carefully scheduled and synchronized.
+
+Q20. What inefficiency does naive Pipeline Parallelism create, and
+     why?
+A20. GPU idling ("bubble"). For example, GPU 2 (processing mini-batch
+     1) must wait for GPU 1 to finish producing the output for that
+     mini-batch before it can start. Until GPU 1 finishes, GPU 2 and
+     GPU 3 sit idle — this is the classic pipeline "bubble" problem,
+     which is why micro-batching/scheduling is used in practice to
+     keep stages busy.
+
+Q21. Compare Data Parallelism and Model Parallelism on communication
+     pattern and use case.
+A21. Data Parallelism: every worker has the full model; communication
+     is gradient-averaging (e.g., AllReduce) after each batch; best
+     when data is large and the model fits per device.
+     Model Parallelism: the model is split across devices;
+     communication happens within a forward/backward pass to pass
+     activations and gradients between partitions; best when the
+     model itself doesn't fit on one device.
+
+====================================================================
+SECTION D: DATA PARTITIONING
+====================================================================
+
+Q22. What are the two main data partitioning strategies, and how do
+     they differ?
+A22. - Horizontal Partitioning: splits rows of the dataset (e.g.,
+        divide records by user ID) — each node gets a subset of
+        samples.
+      - Vertical Partitioning: splits columns/features of the dataset
+        — each node gets a subset of features for all samples.
+     The choice depends on the ML model and the structure of the
+     data.
+
+Q23. Why must partitions be balanced in size? What happens if they
+     aren't?
+A23. Roughly equal partition sizes ensure the computational load is
+     evenly spread across machines. Imbalanced partitions create
+     bottlenecks: some machines finish early and sit idle while
+     others are still processing, lowering overall efficiency
+     (straggler problem).
+
+Q24. Why is randomization/stratification applied when partitioning
+     training data?
+A24. To ensure each partition is representative of the overall
+     dataset distribution and not biased — e.g., if data is sorted by
+     class or time, a naive split could give one worker mostly one
+     class. Random shuffling or stratified sampling avoids this.
+
+Q25. Worked example: A 30 GB dataset is split into three 10 GB
+     partitions across three machines, and the model is trained
+     sequentially on Partition 1, then updated and passed to
+     Partition 2, then Partition 3. What is this approach called, and
+     what is its main limitation?
+A25. This is sequential (incremental) training across partitions
+     without weight aggregation — the same model is reused and
+     continues training on the next partition rather than training
+     multiple model copies in parallel. Limitation: it is not truly
+     parallel (no speedup from using multiple machines simultaneously)
+     and the model may be biased toward whichever partition it saw
+     most recently (a form of catastrophic forgetting/drift), unlike
+     parallel training with weight averaging.
+
+====================================================================
+SECTION E: BATCHING - IN-MEMORY VS ON-DISK
+====================================================================
+
+Q26. Why do we use batching at all instead of training on the full
+     dataset at once?
+A26. Memory Efficiency: the full dataset may not fit in memory, so
+     smaller batches reduce memory requirements.
+     Faster Training: smaller chunks process more quickly per step.
+     Improved Generalization: Cycling through all batches each epoch
+     exposes the model to the full data distribution, reducing
+     overfitting to any single subset.
+
+Q27. Differentiate In-Memory Batching from On-Disk Batching.
+A27. In-Memory Batching: batches are cached in RAM; very fast access,
+     but limited by how much RAM is available — best for small/medium
+     datasets.
+     On-Disk Batching: batches are stored on disk and loaded as
+     needed; slower due to disk I/O, but can handle datasets far
+     larger than available memory — best for very large datasets.
+
+Q28. The slides describe a caching pattern across epochs. Explain the
+     idea behind it.
+A28. Nothing can be done to speed up the very first epoch, since that
+     is the first time the model sees the full dataset. But for the
+     second epoch onward, since the model has already consumed every
+     training example once, those examples can be kept ("cached") in
+     memory after first use. Subsequent epochs then read from the
+     in-memory cache instead of reloading from disk, which speeds up
+     epoch 2 onward — provided the machine has enough memory/disk
+     resources to support this.
+
+Q29. Fill in the comparison table from memory:
+     Feature          | In-Memory Batching      | On-Disk Batching
+     Speed             | ?                       | ?
+     Scalability       | ?                       | ?
+     Best Use Case     | ?                       | ?
+A29. Speed: Very fast (RAM) vs. Slower (disk I/O).
+     Scalability: Limited by memory capacity vs. Can handle datasets
+     larger than memory.
+     Best Use Case: Small to medium datasets vs. Large datasets
+     exceeding memory.
+
+====================================================================
+SECTION F: COMBINING MODELS - AVERAGING & ENSEMBLING
+====================================================================
+
+Q30. Two models are trained independently, one on Batch 1 and one on
+     Batch 2. List three ways to combine them into a single usable
+     model/prediction, with a one-line description of each.
+A30. 1. Model Averaging: average the weights of the two models to
+        produce a single combined model.
+     2. Feature Ensembling: concatenate (stack) features from both
+        batches and train a new model on the combined, richer feature
+        set.
+     3. Ensemble Averaging: keep both models separate and average
+        their output predictions at inference time.
+
+Q31. When should you prefer Model Averaging over the other two
+     techniques?
+A31. When the two models share similar architectures, when faster
+     inference and lower memory usage at deployment matter, and when
+     the training data was split sequentially with minimal diversity
+     between the resulting models (so averaging weights is
+     meaningful).
+
+Q32. When should you prefer Feature Ensembling?
+A32. When different datasets or feature subsets each contribute
+     unique, valuable information, when there are enough compute
+     resources to handle a larger combined feature space, and when
+     the goal is one unified model trained on a richer representation
+     rather than multiple models.
+
+Q33. When should you prefer Ensemble Averaging?
+A33. When the models being combined have different architectures or
+     were trained with different methods (so weight averaging isn't
+     meaningful), when maximizing generalization matters more than
+     inference speed or memory footprint, and when there are
+     sufficient resources to run multiple models at inference time.
+
+Q34. Why can't you always just average the weights of two trained
+     models?
+A34. Weight averaging only makes sense if both models have identical
+     architectures and roughly aligned weight spaces (e.g., trained
+     from similar initializations on similarly distributed data).
+     Models with different architectures, different layer counts, or
+     very different training trajectories can't be combined this way
+     — their weight spaces aren't compatible, so ensemble averaging of
+     outputs (not weights) is used instead.
+
+====================================================================
+SECTION G: MULTIPROCESSING THEORY & BATCH PROCESSING PATTERNS
+====================================================================
+
+Q35. Define a Process and a Thread, and state the key difference.
+A35. Process: an independent unit of execution with its own memory
+     space; processes do not share memory with each other.
+     Thread: the smallest unit of execution within a process; multiple
+     threads within the same process share that process's memory
+     space.
+
+Q36. Distinguish Concurrency from Parallelism.
+A36. Concurrency: multiple tasks make progress by switching between
+     them (context switching) — they may not run literally at the
+     same instant.
+     Parallelism: multiple tasks run at the same time on different
+     processors/cores — true simultaneous execution.
+
+Q37. Describe the Work-Queue pattern in distributed training.
+A37. Tasks (data partitions) are placed in a queue. Each worker picks
+     up a task from the queue, processes it (e.g., computes gradients
+     on that partition), and returns for the next task once done, until
+     the queue is empty. This allows parallel processing without every
+     worker needing a pre-assigned fixed task.
+
+Q38. List the four batch-processing patterns mentioned and what each does.
+A38. - Work Queue Pattern: workers pull data partitions from a shared
+        queue, improving parallelism.
+      - Parameter Server Pattern: model parameters are distributed
+        across servers; workers update parts of the model.
+      - Batching with In-Memory Cache: batches cached in RAM for fast
+        repeated access.
+      - Batching with On-Disk Cache: batches stored on disk; slower
+        but supports larger-than-memory datasets.
+
+====================================================================
+SECTION H: PARAMETER SERVER PATTERN (CORE TOPIC FOR "MODEL SLICING")
+====================================================================
+
+Q39. Describe the basic Parameter Server architecture.
+A39. One (or more) dedicated parameter server stores and updates the
+     model parameters. Multiple worker nodes each hold a portion of
+     the dataset; they compute gradients locally (forward + backward
+     pass) and send ("push") those gradients to the parameter server.
+     The server updates the global parameters and workers "pull" the
+     updated parameters for the next iteration.
+
+Q40. Why use a Parameter Server instead of having all workers talk to
+     each other directly?
+A40. It removes the need for inter-worker communication entirely —
+     workers only talk to the server, not to each other. This reduces
+     coordination complexity and message-passing overhead among
+     workers, and lets workers compute asynchronously, which speeds up
+     training (the slides cite up to a "triple speedup" example from
+     adding worker nodes this way).
+
+Q41. What is the single biggest disadvantage of using just ONE
+     parameter server, and what problems does it cause? Name at least
+     three.
+A41. The single server becomes a centralized bottleneck. Specific
+     problems:
+     1. Scalability Issues: as the model grows, one server can't hold
+        or process all parameters efficiently.
+     2. Network Bottleneck: every worker must communicate with the
+        same server, causing congestion and slower updates.
+     3. Single Point of Failure: if that one server crashes, the
+        entire training process halts.
+     4. Limited Parallelism: the server processes updates sequentially,
+        so it can't exploit parallel processing itself.
+
+Q42. How does the Multiple Parameter Servers design fix the
+     single-server bottleneck? This is the core idea behind "Model
+     Slicing."
+A42. The model's parameters are partitioned ("sliced") across several
+     parameter servers, each owning a subset of the parameters (e.g.,
+     Server 0 manages layers [0,7], Server 1 manages layers [2,5,6]).
+     Workers compute gradients for all layers but route ("push") each
+     gradient to whichever server owns that layer, and "pull" updated
+     weights from the relevant server(s). This decentralizes load,
+     removes the single point of failure, and scales by adding more
+     servers as the model grows.
+
+Q43. In the multi-server worked example (global model with layers
+     0-7, Server 0 owns layers [0,7], Server 1 owns layers [2,5,6]),
+     describe what happens during one training step.
+A43. Workers process their assigned data shard and compute gradients
+     for ALL layers of the global model. Gradients for layers 0 and 7
+     are sent to Parameter Server 0; gradients for layers 2, 5, and 6
+     are sent to Parameter Server 1. Each server applies the gradients
+     only to the layers it owns, keeping the overall global model
+     consistent across both servers. After training, the full global
+     model (now updated piece-by-piece by both servers) is evaluated.
+
+Q44. What are "Pull" and "Push" operations in the Parameter Server
+     pattern?
+A44. Pull: a worker requests the latest/current parameter values from
+     its assigned parameter server(s) before computing on them.
+     Push: a worker sends its locally computed gradients to the
+     parameter server(s) so the global parameters can be updated.
+
+Q45. What does it mean for different workers to update different
+     layers independently, and why is this not the TensorFlow default?
+A45. It means each worker is assigned specific layers (e.g., Worker 0
+     updates only Conv2D layer 0; Worker 1 updates Conv2D layer 16 and
+     the dense layers) rather than every worker updating the entire
+     model. This is possible but requires a custom implementation,
+     because TensorFlow's built-in strategies (MirroredStrategy,
+     MultiWorkerMirroredStrategy) by default aggregate gradients
+     across ALL layers and synchronize every worker's full set of
+     updates — they don't natively support splitting responsibility
+     for different layers across different workers.
+
+Q46. What technique is used to assign dataset shards in TensorFlow,
+     and what do the parameters mean? (Use dataset.shard(num_shards=2,
+     index=0) as reference.)
+A46. dataset.shard(num_shards, index) splits a TF dataset into
+     num_shards equal, non-overlapping parts and returns the part at
+     position index. E.g., num_shards=2 splits the dataset into 2
+     halves; index=0 gives Worker 0 the first shard, index=1 gives
+     Worker 1 the second shard. This guarantees each worker sees a
+     distinct portion of the data with no duplication or overlap.
+
+Q47. How are "random subsets" different from fixed index-based
+     shards, and why might you prefer them?
+A47. Instead of a deterministic split (fixed index=0, index=1), the
+     dataset is first shuffled (e.g., shuffle(buffer_size=5000)) and
+     then sharded. This produces random, non-overlapping subsets per
+     worker.
+     Benefit: better fairness and more balanced data diversity
+     for each worker, especially if the original dataset ordering was
+     not random (e.g., sorted by class or time).
+
+Q48. List two challenges that arise specifically when workers update
+     only assigned (sliced) layers rather than the whole model.
+A48. 1. Synchronization between layers: if one layer's computation
+        depends on another worker's not-yet-updated layer, dependency
+        ordering becomes a problem.
+     2. Race conditions: multiple workers updating shared parameters
+        concurrently can conflict if not carefully coordinated.
+
+Q49. Custom Gradient Partitioning — define it and its two main steps.
+A49. It is the technique of manually dividing a model's layers among
+     workers so each computes gradients only for its assigned layers.
+     Steps: 
+     (1) Divide the model's layers across workers; 
+     (2) each worker computes gradients only for the layers assigned to it, then
+     updates (or sends for update) only those layers' weights, with
+     synchronization between workers customized or omitted as needed.
+
+Q50. Compare Single Parameter Server vs. Multiple Parameter Servers
+     directly — which solves which problem?
+A50. Single Parameter Server: simple to implement, but suffers from
+     scalability limits, network bottleneck (all workers hit the same
+     server), single point of failure, and no parallelism on the
+     server side.
+     Multiple Parameter Servers (Model Slicing): partitions the model's
+     parameters across several servers, so workers talk to different
+     servers depending on which layer's gradient they're pushing/
+     pulling. This decentralizes traffic, removes the single point of
+     failure, and scales better as model size grows — at the cost of
+     more complex routing/bookkeeping logic.
+
+====================================================================
+SECTION I: SYNCHRONOUS VS ASYNCHRONOUS UPDATES & COMMUNICATION
+====================================================================
+
+Q51. Differentiate Synchronous and Asynchronous parameter updates.
+A51. Synchronous Updates: the parameter server waits until it has
+     received gradients from ALL workers before applying an update.
+     Ensures consistency (every worker trains on the same parameter
+     version) but is slower, since fast workers must wait for slow
+     ones (the straggler problem).
+     Asynchronous Updates: workers push gradients and pull parameters
+     independently, without waiting for others. Faster overall
+     throughput, but can lead to "stale gradients" — a worker may
+     compute a gradient based on an outdated version of the
+     parameters because another worker already updated them.
+
+Q52. The slides title two slides "Gradient Stale: Not a problem."
+     What is gradient staleness, and why might it be considered
+     tolerable?
+A52. Gradient staleness happens under asynchronous updates: a worker
+     computes its gradient using a snapshot of parameters that may
+     already be outdated by the time the update is applied, because
+     other workers have pushed updates in between. It is often
+     considered "not a (major) problem" because in practice SGD is
+     inherently noisy/approximate anyway, and minor staleness usually
+     still moves the model in a roughly correct direction without
+     preventing convergence, especially when the staleness is bounded
+     and workers are updated frequently.
+
+Q53. What is Ring-AllReduce, and how does it differ from the
+     Parameter Server pattern?
+A53. Ring-AllReduce is a decentralized gradient-aggregation strategy
+     where nodes are arranged in a logical ring and exchange gradients
+     directly with their neighbors in a circular fashion, until every
+     node ends up with the fully aggregated (e.g., averaged) gradient.
+     Unlike the Parameter Server pattern, there is no central
+     server/bottleneck — communication load is spread evenly across
+     all nodes. It's used in frameworks like Horovod.
+
+Q54. What is Gradient Compression, and name its two techniques
+     mentioned in the slides.
+A54. Gradient Compression reduces the amount of data exchanged between
+     nodes during training, lowering communication overhead.
+     Techniques:
+     1. Quantization: reducing the numerical precision used to
+        represent gradient values (e.g., fewer bits per number).
+     2. Sparsification: transmitting only the most significant
+        gradient updates (e.g., the largest-magnitude values) instead
+        of the full gradient vector.
+
+====================================================================
+SECTION J: SEQUENTIAL VS PARALLEL TRAINING - DECISION MAKING
+====================================================================
+
+Q55. List the advantages of the Parallel case in distributed training.
+A55. Faster Training: multiple batches processed simultaneously.
+     Efficient Resource Use: multiple GPUs/CPUs utilized concurrently, improving throughput.
+     Scalability: can scale to larger datasets/models by adding more workers.
+
+Q56. List the trade-offs/disadvantages of the Parallel case.
+A56. Complexity: needs proper synchronization for gradients and parameter updates.
+     Communication Overhead: workers must communicate with the server or each other, adding latency.
+     Debugging: harder, due to concurrent operations and synchronization issues.
+
+Q57. Complete this decision table from the slides — for each scenario,
+     state whether Sequential or Parallel is preferred.
+     Scenario                                   | Preferred Approach
+     Small datasets or simple models             | ?
+     Limited computational resources             | ?
+     Large datasets or complex models             | ?
+     Availability of multiple GPUs/CPUs           | ?
+     Real-time constraints on training            | ?
+A57. Small datasets or simple models: Sequential.
+     Limited computational resources: Sequential.
+     Large datasets or complex models: Parallel.
+     Availability of multiple GPUs/CPUs: Parallel.
+     Real-time constraints on training: Parallel.
+
+====================================================================
+SECTION K: SHORT-ANSWER / RAPID-FIRE (CLOSED-BOOK STYLE)
+====================================================================
+
+Q58. What does "AllReduce" achieve in Data Parallelism, in one line?
+A58. It aggregates (e.g., averages) gradients computed independently
+     by all workers so every worker ends up with the same combined
+     gradient before updating shared weights.
+
+Q59. Which strategy splits the dataset, and which splits the model?
+A59. Data Parallelism splits the dataset (same model copy everywhere).
+     Model Parallelism splits the model (same data flows through
+     different model parts on different devices).
+
+Q60. What does Hybrid Training combine, and why is it used?
+A60. It combines two or more of data, model, and pipeline parallelism
+     in the same training setup, to balance memory limits,
+     communication overhead, and overall throughput — used when a
+     single strategy alone can't satisfy all of memory, speed, and
+     scale requirements (common for very large models like LLMs).
+
+Q61. What is "Model Slicing" — define it in the specific sense used
+     across the Session 5 slides.
+A61. Model Slicing refers to partitioning a model's parameters into
+     subsets ("slices") and assigning each subset to a different
+     parameter server (or, in some setups, to a different worker for
+     updating). This is the mechanism behind Multiple Parameter
+     Servers: rather than one server holding the entire model, the
+     model is "sliced" by layer (or parameter group) so responsibility
+     for storing/updating each slice is distributed.
+
+Q62. Horizontal vs Vertical partitioning — give one example dataset
+     scenario for each.
+A62. Horizontal: splitting user records by user ID across workers
+     (each worker gets all features for a subset of users).
+     Vertical: splitting a dataset's columns, e.g., one worker handles
+     demographic features while another handles transaction-history
+     features, for all the same users.
+
+Q63. Why is debugging harder in distributed/parallel training setups
+     compared to single-machine training?
+A63. Because operations happen concurrently across multiple
+     workers/servers, timing-dependent bugs (race conditions, stale
+     reads, synchronization mismatches) can appear inconsistently and
+     are harder to reproduce than the deterministic, single-threaded
+     execution of training on one machine.
+
+====================================================================
+QUICK-REVIEW FORMULA / KEY-TERM CHEAT SHEET
+====================================================================
+
+- Data Parallelism      -> same model, different data, average gradients
+- Model Parallelism     -> different model parts, same/related data, pass activations
+- Pipeline Parallelism  -> model split into sequential stages, micro-batch streaming
+- Hybrid Training       -> combination of the above
+- Parameter Server      -> central store for model parameters; push (gradients) / pull (weights)
+- Single PS              -> bottleneck, single point of failure, limited parallelism
+- Multiple PS (Model Slicing) -> parameters partitioned across servers by layer/group
+- Synchronous update    -> waits for all workers; consistent but slow
+- Asynchronous update   -> no waiting; fast but risks stale gradients
+- Ring-AllReduce        -> decentralized, circular gradient exchange (e.g., Horovod)
+- Gradient Compression  -> Quantization (lower precision) / Sparsification (top-k values only)
+- In-Memory Batching    -> fast, RAM-limited
+- On-Disk Batching      -> slower, scales beyond RAM
+- Horizontal Partition  -> split by rows/records
+- Vertical Partition    -> split by columns/features
+
+====================================================================
+End of Q&A set.
+====================================================================

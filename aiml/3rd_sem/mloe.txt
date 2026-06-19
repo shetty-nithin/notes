@@ -1,0 +1,1827 @@
+
+================================================================================
+                           MACHINE LEARNING ON THE EDGE
+================================================================================
+
+
+MODULE 1: FOUNDATIONS OF EDGE AI
+
+--------------------------------------------------------------------------------
+1. WHY EDGE AI? THE DATA EXPLOSION PROBLEM
+--------------------------------------------------------------------------------
+
+Core numbers to memorize:
+- 175 zettabytes (ZB) of global data created/captured/copied/consumed by 2025
+  (IDC Global DataSphere). Growing ~23% per year.
+- 75% of enterprise data will be generated/processed OUTSIDE centralized
+  cloud/data centers by 2025 (Gartner).
+- 15.1 billion connected IoT devices generating continuous real-world data.
+
+The core problem: no centralized infrastructure can economically/physically
+absorb this volume. Economics of transmission + network latency physics +
+data sovereignty regulations all make cloud-only AI architecturally inadequate.
+Computation must move to the edge.
+
+FOUR CONSTRAINTS THAT DRIVE EDGE AI ADOPTION (memorize all four):
+
+1.1 LATENCY -- Physics of Decision-Making
+- Cloud round-trip = 100-500 ms typically (not just server speed -- it's
+  fundamentally limited by electromagnetic signal propagation).
+- Light in optical fibre travels ~200,000 km/s.
+- Mumbai to New York minimum latency = 67 ms (purely from 12,550 km of fibre),
+  ignoring routing/queuing/processing. Realistic: 150-300 ms.
+[EXAM TIP] Mumbai-NY minimum cloud RTT = 67 ms, physics-constrained NOT
+engineering-constrained. Any use case needing <67ms response CANNOT use
+transcontinental cloud AI. Exam questions want you to explain WHY cloud is
+architecturally excluded, not just "slower."
+
+Application latency requirements (memorize this table):
+  Application                          | Required Latency | Why Cloud Impossible
+  Self-driving car pedestrian detection | < 10 ms | At 60 km/h, car travels 1.7m per 100ms -- missed detection = collision
+  Industrial robotic arm control        | < 5 ms  | Arm tip velocity >2 m/s; delay risks worker injury
+  ICU cardiac arrhythmia alert          | < 50 ms | VF treatment window is seconds, not seconds+network RTT
+  Smart traffic signal adaptation       | < 20 ms | Pedestrian crossing state must beat signal change timing
+  Voice wake-word detection             | < 5 ms  | Human latency perception begins ~100ms; must feel instant
+  Factory defect inspection             | < 5 ms  | Part moves through camera FOV in 5-10ms at line speed
+
+1.2 BANDWIDTH -- Economics of Data Transmission
+- 1 x 1080p camera @ 30 FPS = ~3 Gbps uncompressed raw video.
+- 500 such cameras in a factory = 1.5 Tbps uplink needed (~ a small country's
+  total internet capacity).
+- Even with H.264/H.265 compression (50:1 to 100:1), still economically
+  unsustainable at scale.
+[KEY INSIGHT] Edge AI transmits RESULTS not raw data: a class label, bounding
+box, defect flag, confidence score. This is "semantic filtering" -- reduces
+bandwidth by 3-4 orders of magnitude. Worked example: 500 cameras at 1.5 Tbps
+raw -> <500 Kbps with edge inference = 99.97% reduction. This single principle
+("transmit results, not raw data") is one of Edge AI's most economically
+significant contributions.
+
+1.3 PRIVACY AND REGULATORY COMPLIANCE
+Three regulatory frameworks (match each to its architectural requirement):
+- GDPR Article 25 (EU): mandates "privacy by design" -- data protection must be
+  architectural from inception. On-device processing of biometric/medical/
+  behavioural data satisfies this ARCHITECTURALLY. Transmitting to cloud
+  requires legal bases, processor agreements, cross-border mechanisms, breach
+  liability.
+- HIPAA (US): prohibits transmitting Protected Health Information (PHI) to any
+  server without a Business Associate Agreement + security assessment + PHI
+  approval. An on-chip ECG analyzer (Apple Watch model) never needs to
+  navigate HIPAA for the analysis function itself.
+- India's DPDPA 2023: data localisation + consent management requirements,
+  directly affecting where health/finance/public-safety AI inference may
+  legally occur in India.
+Also: commercial IP concern -- factory inspecting proprietary designs cannot
+risk transmitting images even encrypted; on-device inference removes exposure.
+[EXAM TIP] GDPR = privacy by design = data never leaves device. HIPAA = PHI
+can't reach unapproved servers = on-device health AI. DPDPA = data
+localisation for Indian IoT. A medical wearable scenario typically combines
+HIPAA + latency constraints -- identify BOTH.
+
+1.4 CONNECTIVITY -- Designing for the Real World
+Continuous reliable internet is a data-centre engineer's assumption, NOT a
+real-world one. Examples where cloud AI is simply unavailable: offshore oil
+rigs (200km from base station), underground coal mines (2km deep, no radio
+penetration), agricultural drones (15km from cell tower), disaster-response
+robots (destroyed infrastructure), aircraft at 35,000 ft, submarines.
+Key point: an AI system dependent on cloud connectivity FAILS COMPLETELY when
+connectivity drops -- it does not degrade gracefully. In safety-critical
+contexts, that failure is itself a hazard. Edge AI = mission-capable
+standalone operation; intelligence travels WITH the hardware.
+
+--------------------------------------------------------------------------------
+2. THE EVOLUTION OF COMPUTING PARADIGMS
+--------------------------------------------------------------------------------
+
+[KEY INSIGHT] Computing history = consistent movement of intelligence TOWARD
+the data source / point of action.
+  Mainframe -> PC: decentralised storage
+  PC -> Cloud: re-centralised storage
+  Cloud -> Edge: decentralises intelligence
+Edge AI is NOT a deviation from computing history -- it's the logical
+continuation toward the physical world.
+
+FIVE COMPUTING ERAS (memorize table):
+  Era                      | Period     | Where Intelligence Lived       | Key Architectural Property
+  Mainframe Era            | 1960s-70s  | Centralised machines           | All compute one place; passive terminals; single point of failure
+  Personal Computing Era   | 1980s-90s  | Desktop/laptop                 | First decentralisation; compute moves to user; local storage/apps
+  Internet & Cloud Era     | 2000s-10s  | Remote data centres             | Re-centralisation into elastic cloud; SaaS/PaaS/IaaS; smartphones as thin clients
+  Fog / MEC Era            | 2010s-20s  | Regional compute nodes          | 5G MEC servers at base stations; on-prem gateways; compute nears network edge
+  Edge AI / TinyML Era     | 2020s+     | On the device itself            | Intelligence inside sensors, wearables, MCUs; inference at point of data generation
+
+What makes the current Edge AI era distinct: THREE developments had to mature
+SIMULTANEOUSLY (2018-2022):
+  1. Model miniaturisation (quantization, pruning, NAS) to fit kilobytes of memory
+  2. Dedicated NPUs running models in MCUs/mobile chips at milliwatt power
+  3. Standardised deployment toolchains (TFLite, ONNX Runtime, TVM) making
+     deployment hardware-agnostic
+None alone could have produced the Edge AI ecosystem -- their simultaneous
+arrival created the TinyML/on-device AI revolution.
+
+--------------------------------------------------------------------------------
+3. DEFINING EDGE AI -- CONVERGENCE OF THREE FIELDS
+--------------------------------------------------------------------------------
+
+DEFINITION: Edge AI is the deployment of AI algorithms (particularly ML
+inference) directly on edge devices, enabling local data processing and
+decision-making without requiring cloud connectivity for real-time operation.
+
+Edge AI = Edge Computing + Machine Learning + Embedded Systems
+[EXAM TIP] This definition is likely to appear verbatim as a fill-in question.
+
+  Field             | Contributes to Edge AI                                    | Key Concept
+  Edge Computing    | Distributed infra: data locality, offline ops, low latency | Computation follows data, not vice versa
+  Machine Learning  | Trained models: pattern recognition, prediction, decisions  | Models encode complex decision logic compactly
+  Embedded Systems  | Resource-constrained HW, strict power budgets, RTOS         | HW abstraction + efficient SW enables ML at milliwatt scale
+
+3.1 THREE COMMON MISCONCEPTIONS (each individually testable)
+
+Misconception 1: "Edge AI means no cloud"
+REALITY: Most production deployments are HYBRID. Edge = real-time inference
+(latency/privacy demand it). Cloud = model training (needs GPU clusters/big
+data), historical analytics, fleet management, OTA model updates. Edge and
+cloud are COMPLEMENTARY tiers, not alternatives.
+
+Misconception 2: "Edge AI models are less accurate"
+REALITY: Conflates model size with accuracy. Compression techniques
+(quantization FP32->INT8, pruning, knowledge distillation) typically achieve
+accuracy within 1-2 percentage points of uncompressed cloud models while
+running 10-100x faster. Example: MobileNetV2 INT8 TFLite = ~90.1% ImageNet
+top-5 accuracy (only 0.4% below cloud API) but 15-30ms vs 150-500ms latency.
+A 0.4% accuracy delta is operationally insignificant; 10x latency improvement
+is transformative.
+
+Misconception 3: "Edge AI requires custom silicon"
+REALITY: NPUs/accelerators IMPROVE efficiency but aren't prerequisites. TFLite
+runs on any ARM Cortex-A device (e.g. standard Raspberry Pi 4) with NO
+dedicated AI hardware. Apple S9 (Watch) is custom SiP but commercially
+available. Edge AI BEGINS with software optimisation on commodity hardware;
+custom silicon is an efficiency enhancement, not a gateway.
+
+[EXAM TIP] Testable Q&A pattern:
+  "Is Edge AI cloud-free?" -> No, hybrid is the norm.
+  "Are edge models less accurate?" -> Within 1-2%.
+  "Does Edge AI require custom silicon?" -> No, TFLite on RPi works fine.
+
+--------------------------------------------------------------------------------
+4. CLOUD AI vs FOG AI vs EDGE AI -- CHOOSING THE RIGHT TIER
+--------------------------------------------------------------------------------
+
+[KEY INSIGHT] Most production systems are 3-TIER architectures, not pure-edge
+or pure-cloud:
+  Tier 3 (edge device): real-time inference, milliseconds
+  Tier 2 (fog/on-prem node): aggregates results from many devices, runs
+          secondary models
+  Tier 1 (cloud): trains next-gen models on aggregated data, pushes OTA updates
+Each tier does what it's uniquely suited for.
+
+FULL COMPARISON TABLE (memorize thoroughly -- core exam content):
+  Dimension              | Cloud AI                          | Fog AI                                  | Edge AI
+  Location               | Remote data centre (AWS/Azure/GCP) | Local gateway/5G MEC/on-prem server     | On the device (sensor/phone/MCU)
+  Hardware Examples       | NVIDIA A100/H100, Google TPU v4    | Jetson AGX Orin, embedded RTX, edge rack | Coral Edge TPU, Apple Neural Engine, STM32, Jetson Nano
+  Inference Latency       | 50-500 ms (WAN-dependent)          | 10-50 ms (LAN-dependent)                 | 1-15 ms (on-chip)
+  Bandwidth Required      | High (raw data travels to cloud)   | Medium (pre-filtered by edge devices)    | Near-zero (results only)
+  Privacy Guarantee       | None (data leaves premises)        | Partial (data stays on-premises)         | Maximum (data never leaves device)
+  Connectivity Required   | Continuous reliable internet       | Local network/LAN                        | None (fully offline capable)
+  Training Capability     | Yes (primary training location)    | Limited (fine-tuning possible)           | No (inference only; OTA updates from cloud)
+  Power Draw (per node)   | 300-700 W (GPU)                    | 50-300 W (edge server)                    | 1mW-30W (device class)
+  Primary Use Case        | Model training, batch analytics, LLM | Multi-camera aggregation, campus analytics | Real-time inference, safety-critical, offline
+
+4.1 THE FIVE-QUESTION DEPLOYMENT DECISION FRAMEWORK
+(Sequential -- the FIRST "yes" determines the mandatory tier; later questions
+are not re-evaluated once a mandatory constraint is found.)
+
+Q1: Does the use case require response time below 20 ms?
+    YES -> Edge AI mandatory (cloud physics prevents this latency)
+    NO -> continue to Q2
+Q2: Does the application process sensitive data that cannot leave the device?
+    YES -> Edge AI mandatory (GDPR/HIPAA/DPDPA compliance)
+    NO -> continue to Q3
+Q3: Can the deployment location guarantee reliable internet connectivity?
+    NO -> Edge AI mandatory (must operate standalone)
+    YES -> continue to Q4
+Q4: Is the raw data volume too large to economically transmit?
+    YES -> Edge pre-filtering required; only results sent upstream
+    NO -> continue to Q5
+Q5: Is the task purely model training or complex batch analytics?
+    YES -> Cloud AI appropriate/preferred
+    NO -> re-evaluate whether fog AI aggregation would benefit
+
+Real systems often answer these DIFFERENTLY per pipeline component -- e.g. a
+smart factory camera system: Edge AI for real-time defect detection (Q1: <5ms
+needed), Fog AI for aggregating defect stats across 200 cameras, Cloud AI for
+training next-gen detection model. The system is simultaneously all three.
+
+--------------------------------------------------------------------------------
+5. EDGE AI APPLICATION DOMAINS
+--------------------------------------------------------------------------------
+
+Market size: Edge AI market valued at $59.6 billion by 2030, CAGR ~21.7%.
+General intuition to build: identify WHICH constraint (latency/bandwidth/
+privacy/connectivity) drives adoption in each domain.
+
+5.1 Industrial IoT and Manufacturing (largest, most mature vertical)
+- Constraints: sub-5ms response, 24/7 operation, harsh environments, high IP
+  sensitivity.
+- Visual defect inspection: component on conveyor passes camera FOV in 5-10ms;
+  reject signal must fire before part exits FOV. Cloud at 150ms is
+  categorically excluded by physics. Edge camera w/ quantized CNN on Jetson
+  AGX Orin: 3-5ms per frame.
+- Predictive maintenance: vibration accelerometers + acoustic sensors on
+  rotating machinery (motors/pumps/compressors/gearboxes). Anomaly detection
+  on gateway scores machine health from vibration signature in real time,
+  catching bearing wear before catastrophic failure. Converts maintenance from
+  reactive/calendar-based to predictive. Reduces unplanned downtime 25-35%.
+- Energy optimisation: current sensors + power factor measurement identify
+  inefficient machine operation (partial load motor, refrigerant leak,
+  excessive belt tension) via regression models against historical baselines.
+
+5.2 Autonomous Vehicles and Robotics
+- NVIDIA DRIVE Orin (Level 4 AV): 8 surround cameras + 4 LiDAR + 12 ultrasonic
+  + 3 forward radar. Full sensor fusion pipeline (ingestion -> occupancy
+  network -> object detection -> trajectory -> path planning) must complete
+  within 10 ms. No version of this works with cloud connectivity -- compute
+  must ride with the vehicle.
+- Warehouse AMRs (Autonomous Mobile Robots): Visual SLAM (Simultaneous
+  Localisation and Mapping) builds/maintains environment map in real time
+  while localising the robot, using camera/LiDAR. Runs entirely on-board
+  (typically Jetson module) for GPS-denied indoor navigation.
+
+5.3 Healthcare and Medical Devices (strictest latency + privacy combined)
+- Wearable cardiac monitoring: Apple Watch Series 9 (Apple S9 chip Neural
+  Engine) runs arrhythmia detection on ECG signal. Full pipeline (preprocess
+  30s window -> 1D CNN -> interpret) <50ms on-device. FaceID geometry stored
+  ONLY in Secure Enclave, never transmitted -- HIPAA compliance at the silicon
+  level.
+- Point-of-care diagnostics: tablet/smartphone AI interprets ultrasound for
+  obstetric screening or retinal fundus photos for diabetic retinopathy in
+  rural/resource-limited settings with no specialist on-site and inconsistent
+  connectivity -- must work offline.
+
+5.4 Smart Home, Agriculture, Smart Cities
+- Always-on keyword detection ("Alexa"/"Hey Google"): tiny RNN or 1D CNN,
+  <200KB memory, <5ms response, <1mW always-listening power. No audio
+  transmitted until AFTER wake word detected -- both a latency requirement
+  AND a privacy design choice (addresses always-on-mic concerns).
+- Precision agriculture: multispectral cameras on drones detect crop
+  stress/disease/pests via NIR/red-edge reflectance (invisible to human eye).
+  Drone flies at 60km/h, generates GB of data, must analyse in real time to
+  trigger variable-rate fertiliser/pesticide application. No cloud API
+  available over remote fields -- analysis runs on drone's on-board GPU.
+
+--------------------------------------------------------------------------------
+6. THE EDGE-CLOUD CONTINUUM
+--------------------------------------------------------------------------------
+
+Modern AI infra = continuum of SEVEN compute tiers, not a binary choice.
+
+  Tier | Name              | Example Hardware                  | RAM        | Power      | Primary AI Role
+  0    | Bare sensor node   | MEMS sensor, Nordic nRF52          | 32 KB      | uW range   | Raw data capture only; threshold alerting
+  1    | TinyML MCU         | STM32H7, Arduino Nano 33 BLE       | 256KB-1MB  | 1-100 mW   | Keyword spotting, simple anomaly detection
+  2    | ML-capable MCU     | Cortex-M55+Ethos-U55, ESP32-S3     | 1-4 MB     | 50-500 mW  | Gesture, audio, basic image classification
+  3    | Edge gateway       | Raspberry Pi 5, NXP i.MX 8M Plus   | 2-8 GB     | 2-10 W     | Multi-sensor fusion, protocol bridging, moderate CNN
+  4    | Edge AI server     | Jetson AGX Orin, Hailo-8+Intel NUC | 16-64 GB   | 15-60 W    | Object detection, tracking, multi-camera, LLM inference
+  5    | Fog / MEC node     | 5G base station server, on-prem rack | 64-256 GB | 100-500 W | City-scale aggregation, complex model serving
+  6    | Cloud AI           | AWS EC2 P4d, Google TPU Pod        | Unlimited  | kW range   | Model training, large-scale batch inference, MLOps
+
+[KEY ARCHITECTURAL PRINCIPLE] Workloads should execute at the LOWEST tier that
+satisfies all their constraints. Deploying a keyword spotter on cloud GPU
+wastes 10 million x power efficiency. Running large Vision Transformer
+inference on an MCU is simply impossible.
+
+6.1 ADVANCED ARCHITECTURE PATTERNS (exploit the continuum's structure)
+
+SPLIT INFERENCE: Divides NN layers across 2+ tiers. Early layers (small,
+cheap, produce compressed intermediate representations) run on edge device.
+Later compute-intensive layers run on fog/cloud. Intermediate representation
+transmitted is 10-100x smaller than original input -- recovers bandwidth
+advantage while enabling model complexity beyond edge-device capability.
+Example: MIT Neurosurgeon project -- splitting ResNet-50 at layer 20 reduces
+total inference latency by 40% vs running entirely on either device or cloud.
+
+ADAPTIVE OFFLOADING: Dynamic decision AT INFERENCE TIME whether to run locally
+or escalate to a more powerful tier. Confidence-threshold approach: if edge
+model confidence > threshold (e.g. 0.9), return result immediately; if below,
+forward to fog/cloud for a more powerful model. Achieves edge latency for
+majority of inputs (80-95% typical) while maintaining cloud accuracy for the
+difficult minority. Requires reliable connectivity -- if cloud unreachable,
+must fall back to edge result regardless of confidence.
+
+FEDERATED LEARNING: Addresses TRAINING phase, not inference. Each device
+trains a copy of shared model on its OWN private local data, transmits only
+GRADIENT UPDATES (not raw data) to a cloud aggregator. Aggregator combines
+gradients from thousands of devices (typically FedAvg = Federated Averaging)
+to produce improved global model, pushed back via OTA.
+Privacy guarantee is ARCHITECTURAL: patient data never leaves hospital
+servers; typing patterns never leave smartphone; factory images never leave
+plant. Example: Google's Gboard trained via FL across millions of Android
+devices without any typing data ever transmitted to Google.
+Enabling architecture for: healthcare AI consortia, cross-bank fraud
+detection, any domain where data sharing is legally/competitively prohibited.
+
+--------------------------------------------------------------------------------
+7. THE EDGE AI SYSTEM ARCHITECTURE -- FIVE-STAGE PIPELINE
+--------------------------------------------------------------------------------
+
+Every Edge AI system implements this canonical 5-stage pipeline:
+
+STAGE 1 -- SENSE: Data Acquisition
+  Physical sensors transduce phenomena to electrical signals.
+  Cameras (MIPI CSI-2), microphones (I2S/PDM), IMUs (I2C/SPI),
+  temperature probes (1-Wire), gas sensors (I2C analogue).
+  DMA transfers move sensor->RAM without CPU involvement (high-throughput
+  ingestion, doesn't block inference pipeline).
+
+STAGE 2 -- PRE-PROCESS: Feature Extraction
+  Raw sensor data -> form suitable for model input.
+  Images: resize, normalise pixel values, colour space conversion.
+  Audio: FFT or Mel spectrogram transform.
+  Sensor time series: statistical features (mean, variance, skewness, FFT peaks)
+  CRITICAL: normalisation must match training statistics EXACTLY.
+
+STAGE 3 -- INFER: Model Execution
+  Inference runtime loads model flash/ROM -> RAM, allocates tensor buffers,
+  executes computation graph layer by layer, returns output logits/probs.
+  Key runtimes: TensorFlow Lite, ONNX Runtime, TensorRT, TVM, Edge Impulse SDK,
+  CMSIS-NN.
+
+STAGE 4 -- POST-PROCESS: Interpreting Outputs
+  Classification: argmax + confidence threshold.
+  Detection: Non-Maximum Suppression (NMS) merges overlapping bounding boxes.
+  Tracking: Kalman filter or SORT (Simple Online Realtime Tracking) across frames.
+  Temporal smoothing: majority-vote over N consecutive predictions (reduce noise).
+
+STAGE 5 -- ACTUATE: Action and Communication
+  GPIO signal to relay, display update, UART to motor driver, MQTT publish to
+  IoT broker, local DB write, or alert notification.
+
+7.1 INFERENCE RUNTIME FRAMEWORKS COMPARISON
+  Framework        | Primary Target            | Model Format    | Key Strength                                  | Key Limitation
+  TensorFlow Lite  | MCU to mobile, ARM CPU    | FlatBuffer .tflite | Broadest HW support; CMSIS-NN integration   | Limited to TFLite operators
+  ONNX Runtime     | x86, ARM, cloud           | ONNX             | Framework-agnostic; runs PyTorch/TF/SKLearn  | Heavier binary; less extreme-constraint optimised
+  TensorRT         | NVIDIA GPU, Jetson        | ONNX + engine    | Max throughput on NVIDIA HW; INT8 calibration | NVIDIA-only; hardware-specific engine
+  Apache TVM       | Any hardware target       | Any (cross-compiler) | HW-agnostic compilation w/ auto-tuning    | Longer compile time; advanced toolchain
+  Edge Impulse     | MCU (Cortex-M, RISC-V)    | Proprietary SDK  | End-to-end pipeline; no ML expertise required | Cloud-dependent training; limited architecture flexibility
+  CMSIS-NN         | ARM Cortex-M only         | Direct C headers | Zero-overhead on Cortex-M; no OS required    | ARM Cortex-M exclusive; manual integration
+
+--------------------------------------------------------------------------------
+8. CASE STUDIES -- EDGE AI IN PRODUCTION
+--------------------------------------------------------------------------------
+
+8.1 APPLE FACEID -- On-Device Biometric Authentication
+- TrueDepth camera projects 30,000 IR dots, captures distortion -> 3D facial
+  geometry map.
+- NN model (trained per-user, run by Neural Engine of A/S-series chip)
+  compares geometry to enrolled template stored in SECURE ENCLAVE.
+- Architectural principle: COMPLETE SEPARATION of biometric template from
+  general-purpose memory. Secure Enclave = dedicated isolated processor;
+  template never readable by OS or any other software. Comparison happens
+  INSIDE Secure Enclave; only "authenticated y/n" crosses to Application
+  Processor. No facial image/depth map/geometry vector ever leaves device.
+  This is GDPR Article 25 compliance through hardware architecture.
+- Latency: face presentation to unlock < 200ms (incl. mechanical activation).
+  Cloud-dependent version would add 67ms+ propagation -- exceeds fluid UX
+  threshold.
+
+8.2 TESLA FULL SELF-DRIVING -- Autonomous Vehicle Perception
+- Tesla FSD computer: TWO custom FSD ASICs, 144 TOPS @ 15W each = 288 TOPS
+  combined @ 36W total.
+- Processes 8 surround cameras at 36 megapixels/sec/camera (36 FPS) through
+  multi-task vision network: occupancy grids, object detection, trajectory
+  estimation, road marking ID -- simultaneously.
+- 2019 shift from NVIDIA GPU to custom ASIC: workload-specific architecture +
+  dataflow served by fixed-function systolic array at 5x power efficiency of
+  general-purpose GPU. ASIC value prop: known workload + sufficient volume
+  (hundreds of thousands of vehicles/year) = unmatched performance-per-watt.
+
+8.3 AMAZON ALEXA -- Keyword Spotting and Hybrid Architecture
+- Perfect illustration of hybrid edge-cloud: always-on keyword spotter
+  ("Alexa") runs ENTIRELY on-device, compact 1D CNN or small LSTM, <1mW,
+  24hrs/day, NO data transmitted, trained to detect one acoustic pattern and
+  reject all others.
+- After wake word detected: device streams spoken command to Amazon cloud,
+  large NLU model processes command, generates response. Command audio
+  (compressed) transmitted; response returned over same connection.
+- Deliberate architectural separation: privacy-sensitive always-listening
+  function = on-device (no transmission); resource-intensive language
+  understanding = cloud (streaming only AFTER explicit activation). Edge
+  provides privacy; cloud provides reasoning capability a milliwatt device
+  can't host.
+
+--------------------------------------------------------------------------------
+MODULE 1 -- KEY TERMS GLOSSARY
+--------------------------------------------------------------------------------
+Adaptive Offloading -- Dynamic decision to run inference locally or escalate
+  to cloud based on model confidence.
+Arithmetic Intensity -- FLOPs per byte of data moved; determines compute-bound
+  vs memory-bound.
+CMSIS-NN -- ARM's Cortex-M neural network kernel library; zero-OS-dependency
+  TinyML.
+Edge AI -- ML inference on edge devices; convergence of Edge Computing + ML +
+  Embedded Systems.
+Edge-Cloud Continuum -- Seven compute tiers from uW sensor nodes to cloud GPU
+  clusters.
+Federated Learning -- Devices train locally on private data; only gradient
+  updates shared.
+FedAvg -- Algorithm combining gradient updates from many FL clients into an
+  improved global model.
+Fog AI -- ML inference on local gateways/MEC nodes; latency 10-50ms; campus
+  scale.
+GDPR Article 25 -- EU regulation mandating "privacy by design"; edge AI
+  satisfies architecturally.
+HIPAA -- US regulation prohibiting PHI transmission to unapproved servers;
+  mandates on-device health AI.
+INT8 Quantisation -- Weights as 8-bit integers; ~4x memory reduction; 2-4x
+  speedup.
+MLPerf Inference Edge -- Standardised benchmark for comparing edge AI hardware
+  across vendors.
+MEC (Mobile Edge Computing) -- Compute nodes at 5G base stations; 10-50ms
+  regional analytics.
+NMS (Non-Maximum Suppression) -- Post-processing removing duplicate
+  overlapping bounding boxes.
+NPU -- Neural Processing Unit; dedicated systolic-array AI accelerator for
+  tensor ops.
+ONNX Runtime -- Cross-platform, framework-agnostic inference runtime.
+OTA Update -- Over-the-Air model update; cloud pushes improved models to
+  device fleet remotely.
+Split Inference -- Dividing model layers across edge and cloud tiers.
+TensorFlow Lite -- Lightweight inference runtime, MCU to mobile.
+TensorRT -- NVIDIA's inference optimisation runtime; INT8 calibration; max
+  Jetson throughput.
+TinyML -- ML inference on microcontrollers; models <1MB, power <100mW.
+TOPS -- Tera Operations Per Second; AI accelerator throughput metric (Jetson
+  AGX Orin = 275 TOPS).
+
+--------------------------------------------------------------------------------
+MODULE 1 -- PRACTICE QUESTIONS WITH FULL ANSWERS
+--------------------------------------------------------------------------------
+
+Q1. A pharmaceutical company deploys AI cameras to inspect tablet quality on a
+production line moving at 600 tablets/minute. Using the five-question
+framework, determine which compute tier is required and identify which two of
+the four Edge AI constraints are binding.
+
+ANSWER: 600 tablets/min = 10 tablets/sec = 100ms per tablet window. Camera FOV
+at line speed is ~5-10ms. Q1: Latency <20ms? YES -> Edge AI mandatory.
+Additionally Q3-equivalent (Privacy): pharma companies treat product images as
+proprietary IP -- cloud transmission = IP exposure risk. TWO BINDING
+CONSTRAINTS: Latency (<10ms) and Privacy (proprietary manufacturing images).
+
+Q2. Explain why the minimum cloud round-trip latency between New Delhi and
+London is approximately 75ms, and why this cannot be reduced through
+server-side optimisation.
+
+ANSWER: New Delhi-London great-circle distance ~6,800 km. Light in optical
+fibre ~200,000 km/s (2/3 speed of light in vacuum). Minimum one-way
+propagation: 6,800/200,000 = 0.034s = 34ms. Round-trip minimum: 68ms. Network
+routing/switching/queuing adds 10-50ms in practice -> ~75-120ms typical RTT.
+This latency is set by the SPEED OF LIGHT IN GLASS -- cannot be reduced by
+faster servers, more powerful GPUs, or software optimisation. It is a PHYSICS
+constraint, not an engineering one.
+
+Q3. A hospital in Pune wants to share an AI model for ECG arrhythmia detection
+with five other hospitals in Maharashtra to improve accuracy, but is legally
+prohibited from sharing patient ECG data outside its premises under HIPAA and
+DPDPA. What architecture makes this legally possible?
+
+ANSWER: Federated Learning. Each hospital trains the shared model on its own
+patient data locally. Only GRADIENT UPDATES (not ECG waveforms, not patient
+IDs) are transmitted to a central aggregation server. The aggregator applies
+FedAvg to combine gradients and distributes the improved global model back to
+all hospitals. No patient data crosses hospital boundaries at any point. This
+satisfies both HIPAA (PHI never transmitted to unapproved servers) and DPDPA
+(health data stays within India, within originating institution).
+
+Q4. List the five stages of the canonical Edge AI pipeline in order. For a
+smart doorbell that detects whether the visitor is the homeowner, identify the
+specific operation at each stage.
+
+ANSWER:
+Stage 1 (Sense): Camera captures visitor image via MIPI CSI-2; NIR illuminator
+  activates.
+Stage 2 (Pre-process): Image resized to model input size (e.g. 160x160),
+  normalised to [0,1], optionally converted to YUV for face alignment.
+Stage 3 (Infer): Face embedding model runs on NPU, producing a 128- or
+  512-dimensional embedding vector representing the visitor's face.
+Stage 4 (Post-process): Cosine similarity between embedding and stored
+  homeowner embedding computed; if similarity > threshold (e.g. 0.85),
+  recognition event generated.
+Stage 5 (Actuate): Door lock released via relay GPIO; notification pushed via
+  WiFi to homeowner's smartphone app.
+
+Q5. Why do most production Edge AI systems use all three tiers (edge, fog,
+cloud) simultaneously? Give a concrete example for a smart city traffic
+management system.
+
+ANSWER: Each tier has a complementary role the others cannot fulfil.
+Smart city traffic example:
+- Edge (camera nodes at intersections): pedestrian/vehicle detection <20ms per
+  frame using compressed CNN on embedded GPU. Real-time signal timing
+  adjustment cannot tolerate WAN latency.
+- Fog (intersection cluster gateway/district traffic centre): aggregates
+  detection results from 20-50 cameras in a district; runs more complex
+  models for cross-intersection signal coordination; stores short-term video
+  evidence.
+- Cloud: collects city-wide traffic flow data for urban planning analytics;
+  retrains detection model on annotated footage from all cameras; pushes
+  improved models to all edge cameras via OTA; provides long-term analytics
+  dashboards for city planners.
+
+
+################################################################################
+MODULE 2: EDGE HARDWARE & SYSTEMS
+################################################################################
+
+--------------------------------------------------------------------------------
+1. THE EDGE HARDWARE LANDSCAPE
+--------------------------------------------------------------------------------
+
+Opening comparison: cloud GPU draws 700W, costs $30,000. Cortex-M4 MCU draws
+15mW, costs $2. Both can run a neural network. There is NO universally correct
+edge hardware -- only hardware that correctly matches the deployment
+constraint.
+
+1.1 THE CONSTRAINT TRIANGLE
+Three competing demands that CANNOT all be maximised simultaneously:
+  - COMPUTE PERFORMANCE: raw speed/capability of inference (TOPS, FPS, latency)
+  - POWER BUDGET: energy envelope (2-yr coin cell, 25W wall adapter, automotive
+    12V)
+  - UNIT COST: per-device BOM cost; at 1M units, determines economic viability
+Improving any vertex costs the other two.
+
+FOURTH OVERRIDE CONSTRAINT in regulated industries: SAFETY CERTIFICATION.
+  - Medical devices: IEC 62304
+  - Automotive: ISO 26262
+  - Aviation: DO-178C
+Must be identified at PROJECT START, not after hardware selection.
+
+Rapid identification examples:
+  Wearable health sensor on coin cell -> Power Budget dominant
+  Factory inspection <5ms, $500 unit cost -> Compute Performance + Unit Cost
+  Medical ECG classifier w/ IEC 62304 -> Safety Certification overrides all 3
+  Smart metering at 10M units/year -> Unit Cost dominant ($0.50 saving = $5M/yr)
+[EXAM TIP] Read scenario -> identify dominant constraint(s) -> THEN select
+hardware. Never select hardware before identifying constraints.
+
+1.2 SIX KEY ENGINEERING METRICS (memorize table):
+  Metric              | What It Measures                       | Why It Matters                      | Reference Value
+  TOPS                | Peak arithmetic throughput              | Headline compute; unreliable alone   | Jetson AGX Orin: 275 TOPS
+  TOPS/W              | Energy efficiency of compute             | Battery life; thermal design          | Apple Neural Engine: 70 TOPS/W; CPU: 0.1 TOPS/W
+  Memory bandwidth (GB/s) | Rate of data movement to/from DRAM   | True bottleneck for memory-bound models | Jetson AGX Orin: ~204 GB/s LPDDR5
+  mJ/inference          | Energy cost per prediction              | Directly determines battery lifetime  | Coral TPU: 5mJ; RPi4 CPU: 360mJ
+  p95 latency (ms)      | 95th-percentile tail latency             | What SLAs are measured against        | NOT mean -- 5% of inferences exceed mean by 3-10x
+  Flash / RAM           | Model weight storage / activation memory | MCU deployability -- both must fit    | STM32H7: 1MB Flash, 1MB SRAM
+
+--------------------------------------------------------------------------------
+2. EDGE HARDWARE TIERS -- FIVE LEVELS OF CAPABILITY
+--------------------------------------------------------------------------------
+
+FULL TIER TABLE (Chapter 2 version -- note slightly different numbering than
+the 7-tier continuum in Module 1; this is the 5-tier HARDWARE tier model):
+  Tier | Name                  | Power       | RAM         | Example Devices                    | OS/Runtime               | Primary ML Role
+  1    | Microcontrollers (TinyML) | 1uW-100mW | 32KB-1MB   | STM32H7, Arduino Nano 33 BLE        | Bare metal / FreeRTOS    | Keyword spotting, simple anomaly, gesture
+  2    | ML-capable MCU         | 50mW-500mW  | 1MB-4MB    | Cortex-M55, ESP32-S3, i.MX RT1170   | FreeRTOS / Zephyr        | Audio, basic image classify, sensor fusion
+  3    | Gateway / SBC          | 1W-10W      | 1GB-8GB    | Raspberry Pi 5, NXP i.MX 8M Plus    | Embedded Linux           | Multi-sensor aggregation, protocol bridging, CNN
+  4    | Edge AI Server         | 15W-60W     | 8GB-64GB   | Jetson AGX Orin, Hailo-8+NUC        | Linux+Docker / JetPack   | Object detection, multi-camera, LLM inference
+  5    | Fog / MEC Node         | 100W-500W   | 64GB-256GB | 5G base station server, on-prem rack | Full Linux/Kubernetes   | City-scale aggregation, large ViT, multi-stream
+
+2.1 TIER 1 -- Microcontrollers (TinyML) DEEP DIVE
+- Most constrained, most numerous tier: tens of billions of units in
+  industrial sensors, medical patches, appliances, consumer electronics.
+- Defining traits: deterministic execution, sub-mW sleep power, $0.50-$5/unit
+  -- only economically viable platform for truly mass-market AI.
+
+ARM Cortex-M family escalation (memorize the progression):
+  - Cortex-M0/M0+: ultra-low-power, minimal gates -- simple threshold
+    classifiers only
+  - Cortex-M4/M7: adds DSP extensions + hardware FPU -- FFT-based audio
+    features, basic CNN inference
+  - Cortex-M33: integrates ARM TrustZone-M for secure key storage + M4-class
+    compute
+  - Cortex-M55/M85: ARM Helium MVE (M-Profile Vector Extensions) SIMD --
+    same dot-product instruction across 16 INT8 or 8 FP16 values
+    simultaneously -- up to 15x ML throughput vs M4 for keyword spotting/
+    convolution-heavy workloads
+
+RISC-V alternative: ESP32-C3/C6 (RISC-V + WiFi/BT, <$2). SiFive FE310, HiFive
+Uno for research/prototyping. NO ARM royalty costs -- attractive for
+high-volume consumer IoT.
+[EXAM TIP] Tier questions match 4 properties to a tier: power, RAM, OS, ML
+capability. "Always-on keyword spotter, 3 years on coin cell" -> Tier 1 MCU.
+"Multi-camera object detection, Docker, 275 TOPS" -> Tier 4 Edge AI Server.
+
+2.2 TIER 3 -- Gateway and Single-Board Computers
+- Full embedded Linux, 1-8GB LPDDR RAM, $35-$200.
+- Standard prototyping platform: supports complete Python ML ecosystem
+  (TFLite, ONNX Runtime, PyTorch Mobile, OpenCV) without Tier 1's bare-metal
+  constraints.
+- Raspberry Pi 5: ARM Cortex-A76 quad-core @2.4GHz, up to 8GB LPDDR4X.
+  Extended with Hailo-8 M.2 accelerator (PCIe 2.0 HAT+) -> 26 TOPS @ ~$180
+  total system cost.
+- NXP i.MX 8M Plus: industrial-grade gateway, -40C to 85C, integrated
+  2.25-TOPS NPU, MIPI CSI-2, CAN bus for factory applications.
+- Interconnect matters: MIPI CSI-2 up to 2.5 Gbps/lane for camera data -- a
+  misconfigured lane can cap entire pipeline at 30fps regardless of NPU
+  capability. PCIe via M.2 required for full-speed accelerator attachment.
+  EtherCAT gives sub-ms deterministic latency for factory sensor networks.
+
+2.3 TIER 4 -- Dedicated Edge AI Servers
+- Jetson AGX Orin = definitive Tier 4 device: 275 TOPS from 2048 Ampere CUDA
+  cores, 32-64GB LPDDR5 @ up to 204 GB/s, configurable TDP 15-60W. At MAXN
+  power, processes YOLOv8n at ~330 FPS using TensorRT INT8 (would've needed a
+  300W cloud GPU in 2019).
+- Jetson product line: Orin Nano ($249 dev kit, 20-40 TOPS) -> Orin NX ($400
+  SoM, 70-100 TOPS) -> AGX Orin -- continuous cost/performance spectrum.
+- CRITICAL production consideration: JetPack version compatibility. JetPack
+  stack locks CUDA/cuDNN/TensorRT/DeepStream together. An operator working in
+  TensorRT 8.5 may behave differently in 8.6. ALWAYS verify operators against
+  the SPECIFIC JetPack version before production -- mismatches are among the
+  most common causes of production deployment failures.
+
+--------------------------------------------------------------------------------
+3. AI ACCELERATORS -- SEVEN TYPES COMPARED
+--------------------------------------------------------------------------------
+
+3.1 WHY TOPS FIGURES ARE UNRELIABLE
+Vendors quote TOPS under idealised synthetic benchmarks at the precision that
+produces the LARGEST number (typically INT8). An NPU advertising 100 INT8
+TOPS may deliver only 12 FP16 TOPS -- if your model runs FP16, the headline
+is irrelevant.
+
+Peak TOPS undermined in practice by:
+  - Thermal throttling (clock reduction at high junction temp)
+  - Memory bandwidth saturation (compute units idle waiting for data, for
+    memory-bound models)
+  - OS scheduling jitter (background processes consume CPU time)
+  - Incomplete operator coverage (unsupported ops fall back to host CPU)
+Sustained real-world throughput = 30-70% of advertised peak across ALL
+hardware classes.
+
+CORRECT methodology: MLPerf Inference Edge -- standardised, independently
+audited benchmark suite, vendor-neutral comparisons. NEVER compare hardware
+using vendor-supplied numbers alone -- always use MLPerf or your own
+measurements on YOUR specific model.
+
+3.2 ARITHMETIC INTENSITY -- THE REAL PERFORMANCE PREDICTOR
+Arithmetic Intensity (AI) = FLOPs / Bytes Accessed.
+Measures useful computations per byte of data moved between memory and
+compute. Hardware has TWO independent ceilings:
+  - Compute ceiling (peak FLOP/s)
+  - Memory bandwidth ceiling (bandwidth x AI)
+Model runs at whichever ceiling is LOWER for its specific AI value. This is
+the ROOFLINE MODEL.
+
+Worked roofline examples:
+  MobileNetV2 AI ~= 0.3 FLOP/byte
+  Jetson AGX Orin ops:byte ratio ~= 140
+  Since 0.3 << 140, MobileNetV2 is MEMORY-BANDWIDTH BOUND on Jetson.
+  Consequence: buying a higher-TOPS Jetson gives NO inference improvement.
+  Correct intervention: reduce memory access via quantization or
+  architectural changes.
+
+  ResNet-50 AI ~= 1.3 FLOP/byte -- approaching compute-bound on high-BW HW.
+  Large Transformer models ~= 50-200 FLOP/byte -- strongly compute-bound on GPU.
+
+[KEY INSIGHT] Buying more TOPS when your model is memory-bandwidth bound is
+WASTED expenditure. Roofline model reveals the true bottleneck -- address that
+one.
+
+3.3 THE SEVEN ACCELERATOR TYPES (full comparison table -- HIGH-YIELD):
+  Type        | Architecture                       | TOPS/W  | Key Strength                           | Key Limitation                       | Best Use Case
+  CPU         | Sequential cores + SIMD (NEON/AVX)  | 0.1-0.5 | Universal operator support; debug-friendly | Worst efficiency                  | Prototyping; small models (<10M params)
+  GPU         | 1000s parallel shader cores         | 1-15    | All architectures; FP32/16/INT8; mature tools | High power (10-60W); high cost   | Vision pipelines; multi-camera; LLM inference
+  NPU         | Fixed systolic MAC array            | 50-100  | Milliwatt always-on; highest efficiency      | Fixed operators; inference-only   | Keyword spot; continuous health; face unlock
+  Edge TPU    | 8x8 INT8 MAC + SRAM cache           | 2       | Weight caching eliminates DRAM; 2.5ms/image  | Must be 100% INT8 + compiled; partial fallback | High-throughput image classification
+  DSP         | Fixed-point streaming arithmetic     | 10-30   | ~1mW always-on audio; FFT/FIR optimised      | Not for CNN compute; preprocessing only | Always-on audio; sensor preprocessing
+  FPGA        | Reconfigurable logic fabric          | 5-20    | Custom bitwidth; sub-ms deterministic        | High dev effort; HDL expertise needed | Safety-critical; radar; HFT; scientific
+  Custom ASIC | Fixed-function for one workload      | 100-500 | Maximum efficiency; zero wasted silicon       | $5M-$50M NRE; 18-36 months; >500K units | Smartphones; AVs; >1M units
+
+DETAIL NOTES PER TYPE:
+
+CPU: ARM NEON SIMD (all Cortex-A) moderate matrix accel; Intel AVX-512 (x86)
+512-bit vector ops. Cortex-M7 @480MHz: ~120ms/MobileNetV2 inference @3W =
+0.1-0.5 TOPS/W (worst of any class). Best for: prototyping/debugging (full
+Python), small models (<10M params), irregular architectures fixed-function
+HW can't handle.
+
+GPU: Jetson AGX Orin's 2048 Ampere CUDA cores: YOLOv8n @ ~3ms/frame via
+TensorRT INT8 = ~330 FPS. Decisive advantage = ARCHITECTURAL FLEXIBILITY --
+runs Transformers, diffusion models, LLMs, GNNs, any novel architecture
+without fixed-function operator support needed. Weaknesses: power (10-60W),
+cost ($80-$2000) -- inappropriate for battery/coin-cell deployments.
+
+NPU: Fixed-dataflow architecture, typically weight-stationary or
+output-stationary systolic array of MAC units. Apple A17 Pro 16-core Neural
+Engine: 35 TOPS @ ~0.5W = 70 TOPS/W -- large image model inference <1ms while
+SoC uses <300mW total. Designed for always-on workloads (continuous heart
+rate monitoring, persistent face detection). CRITICAL LIMITATION: fixed
+operator support -- unsupported NN layers fall back to host CPU, creating
+context-switch overhead that can negate the NPU advantage entirely. Always
+verify model-operator compatibility before committing to hardware.
+
+Google Coral Edge TPU: Systolic array of 8x8 INT8 MAC units + substantial
+on-chip SRAM cache. Key insight: weights that fit ENTIRELY in on-chip SRAM
+are cached, never read from off-chip DRAM during inference -- eliminates the
+memory bandwidth bottleneck for cache-resident models.
+  MobileNetV2 INT8 on Coral: 2.5ms/image @ 2W (5mJ/inference)
+  vs Raspberry Pi 4 CPU: 150ms @ 5W (360mJ/inference)
+  = 60x latency improvement, 72x energy reduction.
+TWO HARD CONSTRAINTS before any benefit realized:
+  1. Model must be COMPLETELY INT8 throughout (not mixed precision) -- QAT
+     typically required for acceptable accuracy.
+  2. Complete model must compile through Edge TPU compiler -- any unsupported
+     operator runs on host CPU, creating a "partial model" losing most
+     performance advantage.
+
+FPGA: Reconfigurable logic fabric configured post-fabrication into custom
+circuits. Two unique advantages: (1) custom bitwidth (INT4, ternary, binary --
+not limited to INT8 minimum of fixed-function HW; binary NNs replace MAC with
+XNOR-popcount = 32x-64x compute density gains), (2) sub-millisecond
+deterministic latency (no OS/scheduling/context switches -- nanosecond-level
+control) -- essential for radar, HFT, safety-critical automotive.
+
+Custom ASIC: Zero wasted silicon, designed for exactly one workload. Tesla FSD
+chip: custom memory layout/dataflow/precision for Tesla's specific
+architecture -- 288 TOPS @ 36W = 8 TOPS/W. Syntiant NDP120: keyword spotting
+@ 140uW, years on coin cell.
+ECONOMICS entirely volume-driven: NRE (Non-Recurring Engineering: design, mask
+fab, verification, packaging validation) = $5M-$50M, 18-36 months.
+  At 500K units: $10M NRE / 500K = $20/unit added.
+  At 5M units: $10M NRE / 5M = $2/unit added.
+Below break-even volume, ASIC is economically irrational vs general-purpose
+NPU SoC ($10-$30/unit). Above it, ASIC wins on power/cost no programmable HW
+can match.
+
+--------------------------------------------------------------------------------
+4. EMERGING HARDWARE PARADIGMS (2025-2030)
+--------------------------------------------------------------------------------
+  Paradigm              | Representative Device      | Core Innovation                         | Primary Advantage                                  | Current Limitation
+  In-Sensor AI           | Sony IMX500                | NPU embedded on image sensor die        | Only metadata leaves chip; eliminates camera bandwidth/privacy issues | Limited model complexity; early ecosystem
+  Neuromorphic            | Intel Loihi 2               | Sparse asynchronous spike events        | Up to 1000x lower power for sparse event-driven data | Requires spike-based model conversion; immature tools
+  Analog AI                | Mythic AMP, IBM NorthPole  | Inference in analog domain using stored charge | Eliminates ADC/DAC overhead; eliminates memory wall | Precision limited; temperature-sensitive; prototype stage
+  Processing-in-Memory (PIM) | Samsung HBM-PIM          | Compute logic inside DRAM dies          | Eliminates memory wall -- data and compute co-located | High NRE; limited availability; programming complexity
+
+[KEY INSIGHT] Sony IMX500 is the most practically significant near-term: it's
+commercially available TODAY, works with standard vision models, eliminates
+privacy/bandwidth challenges at their architectural source rather than
+downstream.
+
+--------------------------------------------------------------------------------
+5. MEMORY ARCHITECTURE -- THE TRUE BOTTLENECK
+--------------------------------------------------------------------------------
+
+THE MEMORY WALL: DRAM bandwidth grows ~25% every 4 years; compute capacity
+doubles every 2 years. The gap widens every generation. For memory-bound
+models (which dominate edge AI), accelerator TOPS tells only half the story.
+
+5.1 MEMORY HIERARCHY ON EDGE DEVICES
+  Memory Type       | Latency  | Bandwidth   | Capacity     | Volatile? | Role in Edge AI
+  Register file      | <1 cycle | Very high   | Bytes        | Yes       | Active computation; per-MAC accumulator
+  SRAM (on-chip)      | <1 ns    | 500+ GB/s   | KB-few MB    | Yes       | Activation buffers; weight cache (Coral); scratch space
+  NOR Flash           | ~60 ns   | ~100 MB/s   | KB-128MB     | No        | Model weight storage; execute-in-place (XiP) on MCU
+  LPDDR4/5 (off-chip)  | ~10 ns   | 20-68 GB/s  | 1-64GB       | Yes       | Main RAM; activation memory for gateway/server tier
+  PSRAM (SPI)          | ~100 ns  | <80 MB/s    | 1-8MB        | No        | Cheap MCU RAM expansion (ESP32); unsuitable for hot buffers
+  eMMC / SD            | ~100 us  | 50-100 MB/s | GB-TB        | No        | Model storage; logs; dataset on gateway devices
+
+5.2 THE TWO MEMORY FOOTPRINTS THAT MUST BOTH FIT
+Deploying any model on an MCU requires satisfying TWO completely independent
+constraints SIMULTANEOUSLY. Failing to check both = most common cause of late
+MCU deployment failure.
+
+WEIGHT MEMORY: model parameter file size as stored in Flash.
+  - TFLite Micro keyword spotting model: ~300KB -- fits STM32H7's 2MB Flash.
+  - MobileNetV2 INT8: ~3.5MB -- EXCEEDS STM32H7 Flash capacity.
+  - Solved by quantization (FP32 14MB -> INT8 3.5MB) or smaller architecture.
+
+ACTIVATION MEMORY: peak RAM during forward pass to hold intermediate layer
+outputs (feature maps). INVISIBLE in model file size -- often overlooked
+until deployment.
+  - MobileNetV2 @ 224x224: peak activations ~10MB -- 10x STM32H7's 1MB SRAM.
+  - Cannot be solved by quantization alone: INT8 activation = 10MB/4 = 2.5MB
+    -- STILL 2.5x available SRAM.
+  - Solution requires architectural choices (smaller input resolution,
+    smaller channel widths) or tiling inference.
+
+[EXAM TIP] Weight memory (Flash constraint) and activation memory (SRAM
+constraint) are INDEPENDENT -- both must fit. A model can fit in Flash but be
+impossible to run because activation memory exceeds SRAM.
+
+5.3 MEMORY OPTIMISATION TECHNIQUES (table):
+  Technique                   | What It Does                                         | Memory Saving                  | Accuracy Cost | When to Apply
+  INT8 Quantization            | FP32->INT8 weights & activations (4 bytes->1)        | 4x weight + activation reduction | <1% typical  | Always -- first optimisation to apply
+  INT4 Quantization            | 4-bit representation (vs INT8)                       | 2x vs INT8                     | 3-5% typical  | When INT8 still doesn't fit; evaluate per model
+  In-place activation reuse    | Reuse buffer of exhausted layer for next non-dependent layer | 30-50% SRAM reduction       | None          | Automatically applied by TFLM/Edge Impulse
+  Streaming / tiling           | Process image in overlapping patches                  | Dramatic SRAM reduction (enable MCU vision) | Slight latency increase | MCU vision when full image doesn't fit in SRAM
+  Model partitioning           | Weights in Flash, loaded layer-by-layer into SRAM     | Enables models 10x larger than SRAM | Latency increase | Large models on deeply constrained MCUs
+  Knowledge distillation       | Train small student to match large teacher behaviour | 90% size reduction, 90% accuracy retention | <10% typical | Training time -- when smaller architecture needed
+
+--------------------------------------------------------------------------------
+6. HARDWARE-SOFTWARE CO-DESIGN
+--------------------------------------------------------------------------------
+
+THE COMMON FAILURE PATTERN: team trains large FP32 model on cloud GPU without
+considering HW constraints -> attempts deployment at project end -> doesn't
+fit -> applies compression as afterthought -> accuracy collapses -> misses
+deadline. ENTIRELY PREVENTABLE through co-design (treat HW constraints as
+inputs from day one).
+
+6.1 SIX-STEP CO-DESIGN WORKFLOW (memorize the order):
+Step 1: Write down ALL constraints BEFORE selecting any technology
+  (latency budget ms, power envelope W/mW, memory budget KB/MB, unit cost $,
+  privacy requirement, safety cert requirement)
+Step 2: Identify dominant constraint, select hardware tier
+  (constraint set fully determines acceptable tier range)
+Step 3: Benchmark 2-3 candidate platforms with your ACTUAL model
+  (use MLPerf Inference Edge; measure p95 latency under sustained thermal load)
+Step 4: Select model architecture for the chosen hardware
+  (MobileNet/EfficientNet for NPU/TPU; 1D-CNN for MCU sensors; Transformer
+  needs GPU; use NAS-designed models when available)
+Step 5: Apply quantization -- QAT for INT8-only hardware; PTQ for Jetson TensorRT
+  (verify accuracy on validation set after quantization)
+Step 6: Profile under realistic operating conditions (sustained load, target
+  temperature) -- identify thermal throttling BEFORE deployment, not after
+
+6.2 QUANTIZATION STRATEGIES -- QAT vs PTQ (HIGH-YIELD COMPARISON):
+  Dimension              | Post-Training Quantization (PTQ)                       | Quantization-Aware Training (QAT)
+  How it works            | Apply quantization to pre-trained FP32 model AFTER training; calibrate scale factors on 100-1000 sample dataset | Insert fake quantization nodes into training graph; model learns to compensate for quant error during backprop
+  Training required       | No -- calibration only (minutes)                       | Yes -- 2-5x longer training time
+  Accuracy loss            | 1-5% typical; up to 10% on sensitive models            | <0.5% typical; often matches FP32 baseline
+  Best hardware target     | Jetson TensorRT INT8 (via trtexec calibration)         | Coral Edge TPU (MANDATORY -- PTQ alone insufficient)
+  Operator support         | Works with any framework supporting INT8               | Requires framework support for fake-quant ops (TF, PyTorch)
+  When to choose            | Time-constrained; prototyping; Jetson deployment       | INT8-only hardware; production deployment; accuracy-critical
+
+[EXAM TIP] QAT vs PTQ is GUARANTEED exam content. Key facts: QAT mandatory for
+Coral Edge TPU. PTQ works for Jetson TensorRT. QAT loss <0.5%; PTQ loss 1-5%.
+QAT needs retraining (2-5x longer); PTQ needs calibration only (minutes).
+
+6.3 NEURAL ARCHITECTURE SEARCH (NAS) FOR EDGE HARDWARE
+Traditional design uses FLOPs as a proxy for speed -- FLAWED because it
+doesn't capture memory access patterns, HW-specific operator efficiency, or
+bandwidth bottlenecks. NAS methods directly measuring TARGET HARDWARE LATENCY
+as the optimisation signal produce measurably faster real-hardware models.
+
+  - MNASNet: uses actual device latency measured on a Pixel phone as the
+    reward signal during search. Result: 1.8x faster than MobileNetV2 at
+    equivalent accuracy on same hardware.
+  - EfficientNet-Lite: removes squeeze-and-excitation blocks (slow on
+    fixed-function NPUs due to global average pooling requirement), replaces
+    Swish with ReLU6 -- specifically efficient on Coral TPU.
+  - Once-For-All (OFA, MIT): trains a single supernet from which specialised
+    sub-networks for different HW targets (MCU/mobile/edge server) can be
+    EXTRACTED WITHOUT PER-TARGET RETRAINING -- dramatically reduces
+    multi-platform engineering effort.
+
+--------------------------------------------------------------------------------
+7. POWER & PERFORMANCE PROFILING
+--------------------------------------------------------------------------------
+
+7.1 THE FIVE PRODUCTION METRICS (all measured under REALISTIC conditions --
+sustained load, target ambient temp, representative input distribution --
+NOT cold-start lab burst performance):
+
+1. LATENCY: report as mean, p95, AND p99 -- NEVER mean alone. Example: mean
+   8ms, p99 85ms fails a 33ms SLA for 1% of inferences = one missed frame
+   every 3.3 seconds @ 30FPS. Safety-critical = system failure.
+2. THROUGHPUT: inferences/sec under sustained continuous load -- reveals
+   pipelining/batching effects single-shot latency measurements miss.
+3. ENERGY PER INFERENCE (mJ): Power(W) x Latency(s) x 1000.
+4. MEMORY FOOTPRINT: must satisfy BOTH weight (Flash) AND activation (SRAM).
+5. TOPS/W: normalised efficiency comparison across hardware platforms.
+
+PLATFORM COMPARISON TABLE (MobileNetV2 benchmarks -- memorize key numbers):
+  Platform                    | Latency (MobileNetV2) | Power  | Energy/Inference | TOPS/W (NPU)
+  Apple iPhone Neural Engine   | ~1 ms                  | ~0.3W  | 0.3 mJ           | 70 TOPS/W
+  Google Coral Edge TPU        | ~2.5 ms                | 2W     | 5 mJ             | 2 TOPS/W
+  Jetson Nano GPU              | ~8 ms                  | 8W     | 64 mJ            | ~5 TOPS/W (GPU)
+  Raspberry Pi 4 CPU           | ~120-150 ms             | 5W     | 360 mJ           | <0.5 TOPS/W
+  STM32H7 (Cortex-M7)          | ~45 ms                 | 80 mW  | 3.6 mJ           | N/A
+
+7.2 MCU BATTERY SIZING -- WORKED EXAMPLE (memorize the calculation method):
+
+Scenario: STM32H7 vibration sensor, wakes every 30s for 5ms inference.
+Active: power=20mW, duration=5ms. Sleep: current=3uA@3V -> power=9uW,
+duration=29,995ms.
+
+Step 1: Energy per cycle
+  Active = 20e-3 W x 5e-3 s = 0.10 mJ
+  Sleep  = 9e-6 W x 29.995 s = 0.27 mJ
+  Total  = 0.37 mJ per 30-second cycle
+
+Step 2: Energy per hour
+  120 cycles/hour x 0.37 mJ = 44.4 mJ = 0.0123 mWh/hour
+
+Step 3: Theoretical battery life
+  9,000 mWh (2x AA) / 0.0123 mWh/hour ~= 731,000 hours
+
+Step 4: Practical derating
+  Self-discharge: ~15% capacity loss/year
+  Low temperature (-10C): ~20% capacity loss
+  BLE radio overhead: ~15% additional consumption
+  PRACTICAL RESULT: 5-8 years on 2x AA batteries
+
+[EXAM TIP] Battery sizing steps: (1) Energy/cycle = active_power x
+active_time + sleep_power x sleep_time. (2) Energy/hour = energy_per_cycle x
+cycles_per_hour. (3) Battery life = battery_capacity_mWh / energy_per_hour_mWh.
+(4) Apply derating factors.
+
+7.3 THERMAL MANAGEMENT -- "THE SILENT DEPLOYMENT KILLER"
+Thermal throttling silently violates latency SLAs WITHOUT triggering any
+error log or alert. When Jetson AGX Orin junction temp exceeds ~95C, hardware
+governor automatically reduces GPU/CPU clock frequencies -- reducing
+throughput 30-50% with NO software notification.
+
+Worked example: system benchmarked at 8ms in cold AC lab may show 12-15ms
+after 30 minutes sustained operation in a 40C factory enclosure. Enclosure
+thermal resistance x device TDP = temperature rise above ambient: a 25W
+device in IP67 enclosure with 2C/W resistance = 50C rise -> 90C ambient + 50C
+rise = 140C junction temp (well beyond 95C throttling threshold).
+
+REQUIRED: production profiling must include sustained thermal load test --
+run full pipeline at full capacity for 20+ minutes, at maximum expected
+ambient temperature, in a sealed representative enclosure. Monitor clock
+frequency and junction temp throughout.
+
+If throttling occurs, corrective actions:
+  1. Lower nvpmodel TDP cap to match enclosure's thermal dissipation capacity
+  2. Add thermal interface material (TIM) between SoC and enclosure wall
+  3. Design active cooling solution
+
+--------------------------------------------------------------------------------
+8. HARDWARE SECURITY FEATURES
+--------------------------------------------------------------------------------
+
+Foundational principle: software-only security is INSUFFICIENT when an
+attacker with physical access can reflash malicious firmware in under 60
+seconds using standard debug tools. These features are implemented in SILICON
+and are NOT bypassable through software regardless of OS privilege level.
+
+8.1 SECURE BOOT -- The Chain of Trust
+Immutable ROM bootloader (burned at fabrication, unreachable post-production)
+reads next-stage bootloader from Flash, verifies digital signature using a
+public key fused into OTP (one-time-programmable) bits. If valid, bootloader
+executes and verifies OS; OS verifies application. Unbroken chain:
+  ROM -> signed bootloader -> signed OS -> signed application
+Ensures every executing component is cryptographically verified as authorised
+by the hardware owner.
+
+  - NVIDIA Jetson: PKC (Public Key Cryptography) key pair generated by
+    customer; public key fused into OTP fuses at manufacturing. Only
+    correctly-signed firmware boots on fuse-enabled devices.
+  - STM32: Read-out Protection (RDP) levels 0/1/2 progressively lock Flash
+    from external readout. RDP level 2 permanently locks device even against
+    factory reset (strongest protection, but irreversible).
+
+8.2 ARM TRUSTZONE -- Trusted Execution Environment
+Partitions the processor into TWO worlds running simultaneously on the SAME
+physical core, isolated by hardware:
+  - Normal World: application OS, user apps, general-purpose software
+  - Secure World: cryptographic ops, biometric matching, payment processing,
+    secret key material
+Enforced by hardware Memory Protection Controller: Normal World code CANNOT
+read/write/execute Secure World memory under ANY circumstances -- a hardware
+invariant, not a software policy.
+
+  - TrustZone-A (Cortex-A): behind iOS/Android Secure Enclave implementations
+    (FaceID templates, payment tokens, device credentials).
+  - TrustZone-M (Cortex-M23/M33/M55): brings identical protection to MCUs --
+    proprietary ML model weights stored in Secure World Flash, inaccessible to
+    application code. An attacker extracting complete Flash from an
+    M33-based device gets only encrypted blobs without the Secure World key.
+
+8.3 TRNG AND PHYSICAL UNCLONABLE FUNCTIONS (PUF)
+TRNG (True Random Number Generator): harvests entropy from physical noise
+(thermal, shot, flicker noise in transistors) -- genuinely unpredictable.
+Software PRNGs are deterministic/predictable from seed -- cryptographically
+WEAK keys. All modern security MCUs (STM32, ESP32, Nordic nRF) include TRNG
+as standard; mandatory for key generation.
+
+PUF (Physical Unclonable Function): exploits inevitable nanometer-level
+manufacturing variations (transistor threshold voltages, wire resistance,
+gate oxide thickness) -- stable over chip lifetime but NOT reproducible in
+any other chip (even from same wafer). PUF challenge-response reads a unique
+bit pattern serving as the device's cryptographic identity. Rather than
+storing a secret key in Flash (extractable via physical attack), THE CHIP IS
+THE KEY -- deriving its own identity at each boot from physical properties
+that cannot be extracted or cloned. Enables ZERO-TOUCH device provisioning
+(no factory-programmed secret needed; each device self-generates its
+identity).
+
+--------------------------------------------------------------------------------
+9. OPERATING ENVIRONMENTS -- RTOS, LINUX, BARE METAL
+--------------------------------------------------------------------------------
+
+9.1 FreeRTOS, Zephyr, Azure RTOS
+  - FreeRTOS: world's most deployed RTOS, <10KB ROM, Apache 2.0, task-based
+    model allowing multiple inference/sensor/comms tasks to share one MCU
+    core under preemptive priority scheduling. Default for standard
+    commercial IoT WITHOUT safety certification needs.
+  - Zephyr RTOS (Linux Foundation): superior driver ecosystem, native
+    Matter/Thread/Bluetooth 5.3 support -- preferred for connectivity-heavy
+    smart home/industrial IoT.
+  - Azure RTOS (ThreadX): DISTINCT regulatory position -- carries IEC 61508
+    SIL2, DO-178C (aviation), IEC 62304 (medical) certifications. MANDATORY OS
+    requirement for: medical devices under EU MDR, automotive under ISO
+    26262, aviation under DO-178C. Linux is NOT certifiable for any of these
+    (kernel too large/complex) -- choosing Linux for safety-critical
+    applications = regulatory non-compliance.
+
+FULL COMPARISON TABLE (memorize):
+  Property               | Bare Metal       | RTOS (FreeRTOS/Zephyr)         | Azure RTOS (ThreadX)                          | Embedded Linux
+  Latency determinism      | Perfect (no OS)  | Hard real-time possible        | Hard real-time, certified                     | Non-deterministic (+/-10ms jitter)
+  Safety certification     | Not certifiable  | FreeRTOS: no; Zephyr: no        | IEC 61508 SIL2, DO-178C, IEC 62304             | Not certifiable
+  Base power overhead      | <1 mW            | ~1-5 mW                        | ~1-5 mW                                       | 200-500 mW
+  ML frameworks             | TFLM, Edge Impulse, CMSIS-NN | TFLM, Edge Impulse  | TFLM, Edge Impulse                            | All frameworks (TFLite, ONNX, PyTorch)
+  OTA model update          | Firmware reflash required | Firmware reflash required | Firmware reflash required               | File-level model swap (trivial)
+  Boot time                 | <50 ms           | 50-500 ms                      | 50-500 ms                                     | 10-30 seconds
+  Best for                  | Single-function; lowest power | Multi-task MCU; real-time | Regulated medical/automotive/aero        | Gateway; prototyping; full Python ecosystem
+
+9.2 THE TINYML SOFTWARE STACK
+  - TensorFlow Lite for Microcontrollers (TFLM): standard runtime for Tier
+    1/2 MCU deployments. <256KB binary, NO dynamic memory allocation (all
+    memory pre-allocated in a single user-specified memory arena), bare-metal
+    + RTOS operation, portable across ARM Cortex-M/RISC-V/Xtensa.
+  - CMSIS-NN: ARM SIMD-optimised implementations of compute-intensive NN
+    kernels (Conv2D, depthwise conv, fully connected, pooling) -- called
+    internally by TFLM on ARM HW, 3-5x throughput vs generic C reference.
+  - Edge Impulse: end-to-end cloud platform (data collection, DSP pipeline
+    design, model training, deployment). Most valuable feature: PER-LAYER
+    MEMORY PROFILING REPORT -- before generating firmware, reports exact
+    Flash/RAM consumption of every layer on target MCU, letting devs catch
+    fit issues before compiling (avoids late-project "doesn't fit" discovery).
+
+--------------------------------------------------------------------------------
+10. ECOSYSTEM, PROCUREMENT, AND TOTAL COST OF OWNERSHIP
+--------------------------------------------------------------------------------
+
+10.1 PRODUCT JOURNEY FROM DEV BOARD TO PRODUCTION:
+  Stage                    | Form Factor                        | Volume      | Unit Cost      | Timeline               | Production Notes
+  1. Evaluation              | Dev kit (Jetson Dev Kit, RPi)       | 1-100       | $35-$2,000     | Days                    | No thermal spec; no certification; not for production
+  2. Prototype                | Dev board + breadboard sensors      | 10-500      | $50-$500       | Weeks                   | Software defined; flexible; not ruggedised
+  3. Pilot production          | SoM + custom carrier board          | 100-10,000  | $100-$600      | 3-6 months              | Production-viable module; CE/FCC certifiable
+  4. Scalable production       | Custom PCB (chipdown)                | 10K-1M      | $30-$200       | 6-12 months             | Full thermal + mechanical control; industrial ratings
+  5. Mass market                | Custom ASIC                          | >500K       | $5-$30         | 18-36 months + $5M-$50M NRE | Maximum efficiency; zero flexibility after tape-out
+
+10.2 CERTIFICATION REQUIREMENTS AND TIMELINES (memorize -- "biggest cause of
+schedule overruns because identified LATE rather than planned from project
+start"):
+  Certification        | Scope                              | Timeline       | Cost            | Key Shortcut
+  FCC Part 15            | USA wireless (WiFi/BLE/Zigbee)     | 4-12 weeks     | $5K-$20K        | Use pre-certified module (saves 3-6 months + $15K)
+  CE Marking              | Europe (EMC + Radio)               | 4-12 weeks     | EUR 8K-25K      | Pre-certified modules cover RED; only EMC remains
+  UL / IEC 62368           | USA/Canada electrical safety        | 8-20 weeks     | $10K-$30K       | Must be planned in PCB design (clearance/creepage)
+  FDA 510(k) / CE MDR       | Medical devices (USA/Europe)        | 12-36 months   | $50K-$500K+     | Requires design history file + clinical validation from day 1
+  ISO 26262 (ASIL)          | Automotive functional safety        | 12-24 months   | $100K-$1M+      | Requires safety plan, FMEA, hardware fault metrics
+
+[EXAM TIP] Certification numbers ARE exam content. Single biggest shortcut:
+use a pre-certified module (ESP32-WROOM, Nordic nRF9160 DK) to avoid FCC/CE
+radio certification.
+
+10.3 TOTAL COST OF OWNERSHIP -- Edge vs Cloud at Scale
+The "cloud is cheaper" argument (no upfront HW investment) typically FAILS on
+a 5-year TCO basis at production scale.
+
+WORKED EXAMPLE -- 1,000 Smart Cameras over 5 Years:
+Cloud AI per-camera costs:
+  Cloud inference: $30/month x 60 months = $1,800/camera = $1.8M total
+  Connectivity (full video uplink): $600-$1,200/camera 5-yr total
+  Cloud TOTAL: $2,400-$3,000/camera = $2.4M-$3.0M for 1,000 cameras
+
+Edge AI per-camera costs:
+  Edge camera hardware: $500 upfront/camera = $500K
+  Connectivity (results only, <1Kbps): $120-$300/camera 5-yr total
+  Maintenance + OTA: ~$50/camera/year x 5 = $250K total
+  Edge TOTAL: $870K-$1.05M for 1,000 cameras
+
+BREAK-EVEN: ~17 months after deployment
+5-YEAR SAVING: $1.5M-$2.0M -- edge AI is 65-70% LESS EXPENSIVE at this scale
+
+--------------------------------------------------------------------------------
+MODULE 2 -- KEY TERMS GLOSSARY
+--------------------------------------------------------------------------------
+Arithmetic Intensity -- FLOPs / Bytes Accessed; determines compute-bound vs
+  memory-bandwidth bound.
+ARM Cortex-M55 -- MCU core with Helium MVE SIMD; up to 15x ML speedup over M4
+  for tensor workloads.
+ARM TrustZone -- Hardware partition into Secure World + Normal World;
+  Secure World inaccessible to Normal World.
+ASIC -- Custom silicon for one workload; highest efficiency; viable only
+  above ~500K-1M units.
+Azure RTOS (ThreadX) -- Safety-certified RTOS (IEC 61508 SIL2, DO-178C, IEC
+  62304); mandatory for regulated deployments.
+Constraint Triangle -- Three competing HW design forces: Compute Performance
+  <-> Power Budget <-> Unit Cost.
+Coral Edge TPU -- Google's systolic-array INT8-only accelerator; 4 TOPS, 2W,
+  5mJ/inference; requires 100% compiled INT8 model.
+CMSIS-NN -- ARM's SIMD-optimised NN kernel library for Cortex-M.
+Jetson AGX Orin -- NVIDIA's flagship edge AI server; 275 TOPS, 2048 Ampere
+  CUDA cores, 15-60W configurable TDP.
+JetPack -- NVIDIA's Jetson software stack locking CUDA/cuDNN/TensorRT
+  versions -- verify operator compatibility before deployment.
+Knowledge distillation -- Training a small student model to replicate a large
+  teacher's behaviour.
+Memory wall -- Widening gap between DRAM bandwidth growth (~25%/4yr) and
+  compute growth (~2x/2yr).
+MLPerf Inference Edge -- Standardised, independently audited AI benchmark for
+  cross-vendor hardware comparison.
+mJ/inference -- Energy cost per prediction = Power(W) x Latency(s) x 1000.
+Model partitioning -- Loading model weights from Flash layer-by-layer into
+  SRAM; enables models 10x larger than SRAM.
+NOR Flash -- Non-volatile on-chip storage with execute-in-place (XiP); holds
+  model weights on MCUs.
+NPU -- Neural Processing Unit; fixed-dataflow MAC array; 50-100 TOPS/W;
+  always-on at milliwatts.
+p95 latency -- 95th-percentile tail latency; what SLAs must be measured
+  against, not mean.
+Physical Unclonable Function (PUF) -- Chip manufacturing variations create
+  unique, unclonable identity; enables zero-touch provisioning.
+PTQ -- Post-Training Quantization; calibration only; no retraining; 1-5%
+  accuracy loss; use for Jetson TensorRT.
+QAT -- Quantization-Aware Training; fake quant nodes during training; <0.5%
+  loss; mandatory for Coral Edge TPU.
+Secure boot -- ROM -> signed bootloader -> signed OS -> signed app; unbroken
+  cryptographic chain of trust.
+Thermal throttling -- Automatic clock reduction above ~95C junction temp on
+  Jetson; silently violates latency SLAs.
+TFLite Micro (TFLM) -- <256KB runtime; no dynamic allocation; memory arena;
+  bare metal + RTOS; MCU deployment standard.
+TOPS/W -- Compute efficiency metric: NPU 50-100, GPU 1-15, Edge TPU 2, CPU
+  0.1-0.5.
+TRNG -- True Random Number Generator; hardware entropy from thermal/shot
+  noise; required for cryptographic keys.
+Weight memory -- Model parameter storage in Flash; independent from
+  activation memory (SRAM); both must fit simultaneously.
+
+--------------------------------------------------------------------------------
+MODULE 2 -- PRACTICE QUESTIONS WITH FULL ANSWERS
+--------------------------------------------------------------------------------
+
+Q1. A healthcare startup is designing a continuous ECG monitoring patch. It
+must run for 14 days on a 150mAh battery at 3.7V, perform inference every 10
+seconds, and satisfy IEC 62304 medical device software requirements. Identify
+the dominant Constraint Triangle vertex, the mandatory OS, and justify your
+hardware tier selection.
+
+ANSWER: Dominant constraint: Power Budget -- 150mAh x 3.7V = 555mWh, divided
+over 14 days x 24 hours = 336 hours gives max average power of 1.65mW. Far
+below what any gateway (200-500mW base) or edge server can sustain. Mandatory
+OS: Azure RTOS (ThreadX) -- the only RTOS carrying IEC 62304 medical device
+software certification; Linux is not certifiable. Hardware tier: Tier 1 MCU
+with an NPU block (e.g. STM32L5 with Cortex-M33 + TrustZone) or ARM Cortex-M55
+with Helium MVE. The 10-second inference interval means the device is in deep
+sleep 99.98% of the time, with energy dominated by sleep current.
+
+Q2. A model has 600 MFLOPs and accesses 200MB of data per inference. Target
+hardware has 40 GFLOP/s compute and 8 GB/s memory bandwidth. (a) Calculate the
+model's Arithmetic Intensity. (b) Calculate hardware's ops:byte ratio (ridge
+point). (c) Is the model compute-bound or memory-bound? (d) What optimisation
+improves inference speed?
+
+ANSWER:
+(a) AI = 600x10^6 FLOP / 200x10^6 bytes = 3 FLOP/byte.
+(b) Ridge point = 40x10^9 FLOP/s / 8x10^9 bytes/s = 5 FLOP/byte.
+(c) Model's AI (3) is below the ridge point (5) -> MEMORY-BANDWIDTH BOUND --
+    compute units are starved for data.
+(d) Increasing TOPS will NOT help. Correct interventions: (i) reduce
+    activation memory via INT8 quantization to reduce bytes accessed; (ii)
+    increase memory bandwidth by selecting faster DRAM platform; (iii)
+    restructure model for higher data reuse (e.g. depthwise separable
+    convolutions have higher arithmetic intensity than standard Conv2D).
+
+Q3. You are deploying a computer vision model for quality inspection on
+10,000 units of industrial machinery per year. The model requires 26 TOPS of
+inference throughput. Compare Hailo-8 M.2 + Raspberry Pi 5 versus Jetson AGX
+Orin across: (a) total system cost, (b) power consumption, (c) OS
+flexibility, and (d) when you would choose the Jetson despite the higher cost.
+
+ANSWER:
+(a) Cost: Hailo-8 (~$80) + RPi5 8GB (~$100) ~= $180 system. Jetson AGX Orin
+    Dev Kit ~= $2,000; SoM ~= $400-$600 at volume.
+(b) Power: Hailo-8 @ 26 TOPS draws 2.5W; RPi5 adds ~5W -> ~7.5W total. Jetson
+    AGX Orin at 26 TOPS-equivalent workload: ~8-15W (it runs at 275 TOPS full,
+    but per-TOPS uses more power at partial load).
+(c) OS: both run full embedded Linux, Docker, Python -- comparable OS
+    flexibility.
+(d) Choose Jetson when: model requires GPU (Transformer, Vision Transformer);
+    workload demands >26 TOPS; multi-camera input processing; ROS/Isaac
+    robotics integration; or development team already on CUDA/TensorRT
+    toolchain and switching to Hailo SDK isn't justified by the cost saving.
+
+Q4. A Jetson Orin NX deployment at a factory was meeting its 6ms latency SLA
+for four weeks before several units began randomly missing the SLA. No errors
+were logged. Describe the most likely cause, how to diagnose it, and three
+corrective actions.
+
+ANSWER: Most likely cause: THERMAL THROTTLING. After sustained inference at
+40C ambient inside an IP67 enclosure, junction temp exceeds ~95C, triggering
+automatic clock reduction WITHOUT error logging.
+DIAGNOSIS: (1) Run tegrastats on affected devices -- check reported GPU/CPU
+clock vs configured maximum. (2) Check junction temperature in tegrastats
+output. (3) Reproduce: run inference benchmark with enclosure door open vs
+sealed and compare latency.
+CORRECTIVE ACTIONS: (1) Apply lower nvpmodel TDP cap (e.g. 15W mode instead
+of MAXN 25W) to reduce heat generation within enclosure's thermal dissipation
+capacity. (2) Add thermal interface material (TIM) between Jetson module and
+enclosure wall to improve heat transfer. (3) Redesign enclosure with external
+heat fins or active cooling if regulations permit.
+PREVENTIVE MEASURE: always benchmark under sustained load at maximum expected
+ambient temperature before production sign-off.
+
+Q5. Explain the complete pipeline for deploying a PyTorch-trained MobileNetV3
+model to a Google Coral Edge TPU, and describe what happens at inference time
+if one layer type (e.g. a custom attention block) is not supported by the
+Edge TPU compiler.
+
+ANSWER: Complete pipeline:
+(1) Train MobileNetV3 in PyTorch with QAT enabled -- inserting fake
+    quantization nodes for all weight and activation tensors.
+(2) Export to ONNX.
+(3) Convert ONNX to TFLite using ai-edge-torch or ONNX->TensorFlow->TFLite
+    conversion.
+(4) Verify complete INT8 quantization throughout -- ALL tensors must be INT8,
+    not mixed precision.
+(5) Run the Edge TPU compiler (edgetpu_compile): analyses the model, marks
+    each operator as "on-TPU" or "on-host."
+(6) Flash the compiled .tflite to the target Coral device.
+AT RUNTIME: if the custom attention block is unsupported, the compiler
+creates a "partial model" -- the unsupported layer executes on host CPU.
+Inference proceeds: input -> TPU (layers before attention) -> CPU (attention
+block) -> TPU (layers after attention) -> output. Each TPU<->CPU context
+switch adds ~1-3ms overhead. For a model with a large attention block, this
+can eliminate most/all of the Coral's latency advantage, making pure CPU
+deployment comparable in speed. SOLUTION: replace the custom attention block
+with a standard depthwise separable convolution or other TPU-supported
+operator.
+
+
+################################################################################
+MODULE 3: EDGE DATA & IoT INTEGRATION
+################################################################################
+
+--------------------------------------------------------------------------------
+1. EDGE DATA -- WHAT IT IS AND WHY IT MATTERS
+--------------------------------------------------------------------------------
+
+DEFINITION: Edge data is any data generated, processed, and acted upon at or
+near the point of origin rather than forwarded to a remote server.
+
+FOUR TYPES OF EDGE DATA (memorize):
+  1. Sensor streams: continuous readings (temperature, vibration, pressure,
+     humidity, current) flowing uninterrupted as long as the device operates.
+  2. Telemetry logs: periodic snapshots of device health (error codes,
+     uptime counters, battery level, operational metrics).
+  3. Video/image frames: highest-bandwidth form -- inspection cameras,
+     drones, surveillance.
+  4. Event messages: discrete timestamped notifications when a threshold is
+     crossed or a state changes (motor temp exceeds limit, anomalous
+     vibration spectrum peak).
+
+THE DEFINING CHALLENGE -- VOLUME vs VALUE MISMATCH:
+A vibration sensor sampling at 5,000 Hz generates 432 MILLION readings per
+day. Only a tiny fraction is information-useful for fault detection. An edge
+node's PRIMARY RESPONSIBILITY is intelligent data reduction: retaining
+information-bearing signal while discarding noise BEFORE storage/transmission.
+
+[KEY INSIGHT] The fundamental contract of edge data processing: REDUCE
+VOLUME, RETAIN SIGNAL. An edge node that blindly forwards all raw data to the
+cloud is NOT performing edge intelligence -- it's expensive, latency-prone
+data relay. The economic/technical case for edge AI rests on this reduction,
+consistently achieving 60-99% bandwidth savings.
+
+--------------------------------------------------------------------------------
+2. DATA INGESTION PATTERNS
+--------------------------------------------------------------------------------
+
+THREE hardware-level ingestion patterns (full comparison table):
+  Pattern            | How It Works                                                     | Power Efficiency                              | Throughput                       | Best Use Case
+  Polling              | CPU wakes at regular intervals, reads sensor register directly  | Poor -- CPU always active; wastes cycles      | Low -- limited by polling interval | Simple, mains-powered devices, infrequent readings
+  Interrupt-Driven      | Sensor asserts GPIO pin when data ready; CPU wakes on interrupt, processes, sleeps | Excellent -- CPU sleeps between interrupts | Medium -- one sample/interrupt   | Battery-powered devices; IMUs; data-ready-pin sensors
+  DMA (Direct Memory Access) | Dedicated DMA controller moves sensor->memory directly; CPU notified only on buffer full | Excellent -- CPU entirely excluded from transfer path | Very high -- thousands of samples/sec, zero CPU | Audio, vibration, high-frequency ADC
+
+[EXAM TIP] Interrupt-driven = correct answer for "most power-efficient for
+battery-powered devices." DMA = correct when question involves high-throughput
+sensors (audio, vibration, ADC). Polling is RARELY the best answer --
+identify it as the anti-pattern for battery-powered devices.
+
+--------------------------------------------------------------------------------
+3. ON-DEVICE PREPROCESSING PIPELINE -- SIX STAGES
+--------------------------------------------------------------------------------
+
+Raw sensor readings are almost NEVER suitable for direct model input
+(measurement noise, different numeric scales, excess storage/bandwidth).
+
+STAGE 1 -- SENSE: Acquire raw values from ADC/GPIO via chosen ingestion
+  pattern (DMA/interrupt).
+
+STAGE 2 -- FILTER: Remove noise while preserving underlying signal.
+  - Moving average: replaces each sample with mean of preceding N samples;
+    simple, low-lag.
+  - Kalman filter: recursive optimal estimator combining dynamics model with
+    measurement.
+  - Butterworth low-pass: attenuates frequencies above cutoff; implemented in
+    fixed-point via CMSIS-DSP.
+
+STAGE 3 -- NORMALISE: Rescale features to common range for fair model
+  comparison.
+  - Z-score: z = (x - mu) / sigma -> zero mean, unit variance.
+  - Min-max: x_norm = (x - x_min) / (x_max - x_min) -> maps to [0,1].
+
+STAGE 4 -- DOWNSAMPLE: Reduce sample rate to minimum required for the
+  detection task.
+
+STAGE 5 -- EXTRACT FEATURES: Transform windowed samples into compact feature
+  vectors (see Section 7 below).
+
+STAGE 6 -- COMPRESS/TRANSMIT: Delta-encode or publish feature vector via
+  MQTT/UART to gateway.
+
+[EXAM TIP] Z-score normalisation is the MOST TESTED. Formula: z = (x - mu) /
+sigma. Result: zero mean, unit variance. Min-max formula: (x - min) /
+(max - min). Z-SCORE is more robust to outliers; MIN-MAX is simpler but
+distorted by extreme values.
+
+--------------------------------------------------------------------------------
+4. EDGE STORAGE HIERARCHY
+--------------------------------------------------------------------------------
+
+  Tier         | Type                  | Volatile? | Capacity  | Access Time     | Primary Role in Edge AI
+  L1 (fastest)  | SRAM (on-chip)        | Yes       | KB-few MB | <1 ns           | Active computation: feature buffers, inference workspace, model activations
+  L2            | NOR/NAND Flash         | No        | MB-GB     | ~60 ns read     | Model weights, preprocessor parameters, device config, event logs
+  L3            | SD card / eMMC         | No        | GB-TB     | ~10-100 ms      | Long-term archives, large model files, historical datasets on gateways
+  L4            | Gateway database        | No        | TB        | Network-dependent | SQLite/InfluxDB: multi-device aggregation, retention policies, cloud sync
+
+4.1 FLASH WRITE ENDURANCE -- THE HIDDEN CONSTRAINT
+Flash memory has a finite number of erase-write cycles per sector:
+  ~100,000 cycles for NOR Flash
+  ~10,000 cycles for NAND Flash
+A data logger appending a new record to the SAME sector every millisecond
+would exhaust that sector in under 2 minutes.
+
+TWO DESIGN RULES PREVENT THIS:
+  - BATCH WRITES: accumulate data in SRAM, write larger blocks less
+    frequently, trading recency for dramatically extended sector life.
+  - WEAR-LEVELLING FILESYSTEM: LittleFS and SPIFFS distribute writes evenly
+    across all available sectors rather than concentrating them in one area.
+    LittleFS additionally provides ATOMIC WRITES -- a power failure mid-write
+    never corrupts the filesystem.
+
+[EXAM TIP] "Which storage tier has write endurance limits?" -> Flash (NOR
+~100K, NAND ~10K cycles per sector). "Which filesystem prevents corruption on
+MCU Flash?" -> LittleFS (atomic writes + wear levelling).
+
+--------------------------------------------------------------------------------
+5. EVENT-DRIVEN PIPELINES AND STREAMING WINDOWS
+--------------------------------------------------------------------------------
+
+Event-driven processing: computation triggered by DATA ARRIVAL rather than a
+periodic timer -- allows response to anomalies within milliseconds.
+
+THREE STREAMING WINDOW TYPES (HIGH-YIELD comparison table):
+  Window Type | Definition                                                         | Overlapping? | Results/min (size=60s, step=10s) | Best Use Case
+  Tumbling     | Non-overlapping fixed-length segments; each event belongs to exactly one window | No  | 1 (one result per 60s period)     | Periodic reporting: daily energy summaries, hourly quality metrics
+  Sliding       | Fixed size W, advances by step S < W; consecutive windows overlap | Yes | 6 (one result every 10s)          | Continuous anomaly detection: bearing fault, vibration monitoring
+  Session        | Remains open while events arrive; closes after configurable inactivity gap | No | Variable (depends on event spacing) | User interactions, intermittent device activity, burst-mode sensors
+
+[EXAM TIP] Tumbling vs sliding window distinction is GUARANTEED in exams.
+Tumbling: non-overlapping, one result per window period. Sliding: overlapping,
+one result per step interval. For size=60s, step=10s sliding window:
+60/10 = 6 results per minute. REMEMBER: step < size is the defining property
+of a sliding window.
+
+LATENCY BUDGET (max elapsed time, sensor event -> actuator response):
+  Industrial control loops: sub-millisecond
+  Robotics collision avoidance: <10 ms
+  Predictive maintenance alerts: up to 100 ms tolerable
+  Cloud round-trips: 100-500 ms -- far beyond real-time control requirements,
+  which is why these applications must execute entirely on the edge.
+
+--------------------------------------------------------------------------------
+6. DATA FUSION TECHNIQUES
+--------------------------------------------------------------------------------
+
+Data fusion combines multiple sensor inputs for more accurate/reliable/
+complete inferences than any single sensor could provide.
+
+THREE FUSION LEVELS (HIGH-YIELD table):
+  Fusion Level   | Where Applied                                       | Resilience to Sensor Failure | Compute Requirements | Example
+  Data-level      | Raw readings combined before feature extraction    | Low -- if one sensor fails, fused data corrupted | Very low -- simple averaging/weighted sum | Averaging two co-located accelerometers to reduce independent noise
+  Feature-level     | Features extracted per sensor independently, then concatenated | Medium -- missing features reduce accuracy but model still runs | Medium -- FFT + statistics per sensor | Concatenate vibration FFT bins + temp statistics for bearing anomaly detection
+  Decision-level      | Separate model per sensor; outputs combined via voting/confidence weighting | High -- other models continue if one sensor fails | High -- one full model per sensor stream | Majority vote from vibration, acoustic, thermal anomaly classifiers
+
+6.1 THE COMPLEMENTARY FILTER
+Solves the gyroscope-accelerometer fusion problem with minimal computation.
+  - Gyroscope: accurate angular rate short-term, but accumulates DRIFT over
+    time via integration error.
+  - Accelerometer: absolute reference to gravity, stable long-term, but noisy
+    and vibration-sensitive short-term.
+
+FORMULA:
+  angle(t) = alpha x (angle(t-1) + omega x dt) + (1-alpha) x theta_accel
+
+Where omega = gyroscope angular rate, dt = time step, theta_accel = angle from
+accelerometer, alpha is typically 0.98 (98% gyroscope integration + 2%
+accelerometer drift correction).
+Requires ONLY scalar arithmetic (one multiply, one add per axis per
+timestep) -- ideal for any Cortex-M MCU without matrix operation support.
+
+6.2 THE KALMAN FILTER
+Mathematically OPTIMAL estimator for linear systems with Gaussian noise.
+Alternates: PREDICT step (project state estimate forward using dynamics
+model) and UPDATE step (correct prediction using new noisy measurement).
+Also tracks uncertainty of its own estimates -- weights measurements more
+heavily when model is uncertain, less when measurement is noisy. MATRIX
+operations -> appropriate for gateway-class devices (RPi, Jetson Nano), not
+bare MCUs.
+
+[EXAM TIP] Complementary filter: scalar arithmetic only, no matrix
+operations, suitable for ANY Cortex-M. Kalman filter: matrix algebra,
+computationally heavier, optimal for linear Gaussian systems, suitable for
+GATEWAY devices. Match the filter to the device class in exam scenarios.
+
+--------------------------------------------------------------------------------
+7. ON-DEVICE FEATURE EXTRACTION
+--------------------------------------------------------------------------------
+
+Converts a window of raw signal samples into a compact numeric vector
+capturing the signal's meaningful characteristics.
+
+FOUR MOTIVATIONS for on-device feature extraction:
+  1. Dramatic data reduction (1,024 ADC samples -> 32 FFT bins = 32x reduction)
+  2. Enhanced privacy (raw audio/video never leaves device)
+  3. Faster inference on smaller feature vectors
+  4. Reduced bandwidth/cellular costs (60-90% reduction)
+
+FEATURE TYPES TABLE (memorize formulas, especially RMS and Z-score):
+  Category         | Feature Name         | Formula / Description                          | Typical Use Case
+  Time-Domain        | Mean                  | Average sample value over window                | Detecting DC offset or slow drift
+  Time-Domain        | Root Mean Square (RMS) | sqrt(1/N x sum(xi^2)) -- signal energy         | Standard vibration monitoring metric; directly correlates with mechanical stress
+  Time-Domain        | Standard Deviation     | sqrt(1/N x sum((xi-mu)^2)) -- spread            | Detecting increased variability in sensor readings
+  Time-Domain        | Kurtosis               | 4th standardised moment -- distribution shape   | High kurtosis indicates impulsive events (bearing impacts)
+  Time-Domain        | Zero-crossing rate      | Crossings per unit time                         | Characterises oscillatory signals; speech vs silence detection
+  Frequency-Domain    | FFT spectral bins        | Magnitude at each frequency component           | Identifies resonant frequencies; detects bearing fault harmonics
+  Frequency-Domain    | Spectral centroid        | Frequency at which energy is concentrated       | Shifts upward as machine begins to wear
+  Frequency-Domain    | MFCC (13 coefficients)    | Mel-scale filter bank + DCT of log spectrum    | Industry standard for edge keyword spotting and audio classification
+
+[EXAM TIP] RMS is the most tested time-domain feature. Formula:
+RMS = sqrt(1/N x sum(xi^2)). Meaning: effective energy of the signal. MFCC is
+the standard frequency-domain feature for audio classification -- 13 compact
+coefficients from 512 FFT points. KNOW BOTH FORMULAS AND USE CASES.
+
+--------------------------------------------------------------------------------
+8. LIGHTWEIGHT DATABASES FOR EDGE DEPLOYMENTS
+--------------------------------------------------------------------------------
+
+Standard enterprise DBs assume abundant RAM, stable power, reliable storage --
+edge devices have none of these. Purpose-built lightweight DBs match reality.
+
+  Database      | Size            | Data Model                                              | Key Feature                                            | Best For
+  SQLite          | ~500 KB library | Relational (SQL)                                        | Serverless; zero admin; ACID transactions; crash-safe journal | Structured event logs, device config, application state on any Linux/RTOS device
+  LevelDB          | ~300 KB         | Key-value (LSM-tree)                                     | Optimised for high-throughput sequential writes; sorted key iteration | Write-heavy time-ordered logging; millions of timestamped events/day
+  InfluxDB Edge      | 2-5 MB          | Time-series (measurements, tags, fields, ns timestamps) | Retention policies; tag-based queries; purpose-built for telemetry | Sensor telemetry on gateway-class devices; automatic data expiry
+  LittleFS            | Filesystem layer | File-based                                              | Atomic writes (power-safe); wear levelling; crash-safe | Foundation filesystem for any MCU Flash data logger; beneath SQLite or raw files
+  SPIFFS                | Filesystem layer | File-based                                              | Simpler than LittleFS; less wear levelling sophistication | Legacy ESP8266/ESP32 deployments; lower write volume applications
+
+[EXAM TIP] Match database to scenario: SQLite = general structured storage
+(most versatile). LevelDB = write-heavy sequential key-value. InfluxDB =
+time-series with retention policies. LittleFS = crash-safe MCU Flash
+filesystem. This appears as a scenario-matching question.
+
+--------------------------------------------------------------------------------
+9. MQTT -- THE IoT COMMUNICATION STANDARD
+--------------------------------------------------------------------------------
+
+MQTT (Message Queuing Telemetry Transport): lightweight publish-subscribe
+protocol for constrained IoT devices. Central BROKER (Mosquitto, EMQX,
+HiveMQ) receives messages from publishers, distributes to all current
+subscribers per topic. Decouples producers from consumers, buffers events
+when subscribers offline, scales to millions of concurrent connections on a
+single broker cluster.
+
+9.1 MQTT QUALITY OF SERVICE (QoS) LEVELS (HIGH-YIELD table):
+  QoS Level | Name             | Message Exchange                                       | Guarantee                                          | Overhead  | Appropriate Use Case
+  QoS 0       | At-most-once      | Single PUBLISH (fire-and-forget)                       | No guarantee; packets may be lost                  | Minimal   | Non-critical telemetry; sensor readings where loss acceptable
+  QoS 1       | At-least-once      | PUBLISH -> PUBACK                                       | Delivery guaranteed; duplicates possible; consumer must dedupe | Low | Most IoT telemetry; sensor events where duplicates tolerable
+  QoS 2       | Exactly-once         | PUBLISH -> PUBREC -> PUBREL -> PUBCOMP (4-way handshake) | Exactly one delivery guaranteed                  | Highest   | Safety-critical actuator commands; valve open/close; financial transactions
+
+9.2 MQTT ADVANCED FEATURES
+  - RETAINED MESSAGES: last-published message on any topic, stored
+    persistently by broker. New subscribers get it IMMEDIATELY on connect
+    without waiting for next publication -- essential for infrequently
+    connecting devices needing current setpoint/status right away.
+  - LAST WILL AND TESTAMENT (LWT): message pre-configured by a client at
+    connection. Broker publishes it automatically to a specified topic if
+    the client disconnects UNEXPECTEDLY (no orderly DISCONNECT packet) --
+    equivalent of an automatic death notification, enabling supervisory
+    systems to detect failures WITHOUT polling.
+  - TOPIC WILDCARDS: single-level "+" matches exactly one topic level (e.g.
+    factory/+/temperature matches factory/line1/temperature and
+    factory/line2/temperature but NOT factory/line1/sensors/temperature).
+    Multi-level "#" matches zero or more levels, must be the FINAL character
+    (e.g. factory/# matches factory/line1/temperature, factory/line2/
+    vibration, any subtopic below factory/).
+
+[EXAM TIP] QoS level selection is a HIGH-FREQUENCY exam topic. QoS 2 for
+safety-critical actuator commands (valve open/close, motor start/stop). QoS 1
+for general telemetry where duplicates are harmless. QoS 0 for high-frequency
+non-critical readings. The 4-step QoS 2 exchange:
+PUBLISH -> PUBREC -> PUBREL -> PUBCOMP.
+
+--------------------------------------------------------------------------------
+10. COMMUNICATION PROTOCOL COMPARISON
+--------------------------------------------------------------------------------
+
+  Protocol     | Transport | Pattern                                  | Message Size                          | Primary Edge Use Case                                          | Avoid When
+  MQTT           | TCP       | Publish-Subscribe (broker-mediated)      | 2-byte header; ~100-500 bytes/message | Sensor telemetry to broker; IoT gateway to cloud; MCU to gateway | Synchronous request-response required between services
+  gRPC            | HTTP/2    | Synchronous RPC; bidirectional streaming | Protobuf binary; 3-10x smaller than JSON | Edge microservice-to-microservice (inference <-> preprocessing containers) | MCU or constrained devices (needs HTTP/2 stack)
+  Apache Kafka      | TCP       | Publish-Subscribe (log-based; persistent) | Variable; optimised for high-throughput batches | Multi-machine edge pipelines; high-volume event streams needing replay | Single MCU or constrained edge node; too heavy for IoT gateways
+  REST / HTTP         | TCP       | Request-Response                          | JSON/XML (verbose) or binary           | Cloud API calls; OTA model downloads; configuration updates    | Real-time telemetry; MCU streaming (overhead too high)
+  CoAP                  | UDP       | Request-Response (RESTful, connectionless) | ~4-byte header; ultra-constrained devices | MCU-to-gateway on IPv6/6LoWPAN mesh networks; NB-IoT deployments | When delivery ordering or guaranteed delivery required
+
+[EXAM TIP] MQTT vs gRPC distinction is a CORE exam topic. MQTT connects
+DEVICES (MCUs, sensors) to brokers; publish-subscribe; 2-byte header;
+designed for constrained devices. gRPC connects SERVICES to services on
+gateway hardware; synchronous RPC; Protobuf binary encoding over HTTP/2.
+SUMMARY: "MQTT connects things; gRPC connects containers."
+
+--------------------------------------------------------------------------------
+11. EDGE IoT FRAMEWORKS
+--------------------------------------------------------------------------------
+
+Edge IoT frameworks = middleware layer between sensors and cloud services
+(protocol abstraction, data routing, local analytics, cloud integration).
+Correct framework choice is almost always determined by ORGANISATIONAL
+constraints, not pure technical features.
+
+  Framework            | Governance                                       | Cloud Dependency                                  | Protocol Support                                       | Local Analytics                                              | Best For
+  EdgeX Foundry          | Linux Foundation (open-source, vendor-neutral)   | None -- fully offline capable                      | 300+ device protocols via Device Services               | eKuiper SQL-based rule engine; event-driven analytics       | No-cloud-subscription orgs; open-source mandates; multi-vendor IoT
+  AWS Greengrass v2       | Amazon (proprietary)                              | AWS account required for deployment management    | Lambda functions; SageMaker Neo model compilation       | Lambda-at-edge; local inference via SageMaker components    | AWS-native orgs using SageMaker; Lambda deployment model; managed fleets
+  Azure IoT Edge            | Microsoft (proprietary)                            | Azure IoT Hub required for module management      | Docker modules (IoT Edge Modules); AMQP/MQTT             | Azure Stream Analytics on IoT Edge (SQL analytics); ONNX containers | Azure-native orgs; SQL analytics at device; Azure DevOps CI/CD
+  AWS IoT Greengrass (v1)    | Amazon (legacy)                                     | AWS account required                                | MQTT-based; simpler than v2                              | Basic local inference via SageMaker Neo                      | Legacy deployments; being superseded by Greengrass v2
+
+[EXAM TIP] Framework selection is a SCENARIO question with a cloud context
+clue. "No cloud subscription, open-source mandate, 300 device protocols" ->
+EdgeX Foundry. "AWS-native, SageMaker models, Lambda at edge" -> AWS
+Greengrass v2. "Azure-native, SQL stream analytics at device, Azure DevOps
+CI/CD for models" -> Azure IoT Edge. ALL THREE support offline operation --
+this is NOT a differentiator.
+
+--------------------------------------------------------------------------------
+12. EDGE AI USE CASES -- FROM THEORY TO DEPLOYMENT
+--------------------------------------------------------------------------------
+
+12.1 PREDICTIVE MAINTENANCE (most commercially mature use case)
+Goal: detect early failure signs (bearing wear, rotor imbalance, insulation
+degradation) before catastrophic breakdown.
+Pipeline: vibration accelerometers @ 5,000 Hz; acoustic mics @ 16,000 Hz;
+thermocouples @ 1 Hz. Streams fused at FEATURE LEVEL -- FFT spectral bins
+from vibration/acoustic concatenated with statistical features from
+temperature into a joint vector. Anomaly detection model (typically
+Autoencoder or Isolation Forest) classifies each vector on the edge. On
+anomaly: alert published via MQTT to SCADA, maintenance ticket created.
+Documented results: 35% reduction in unplanned downtime, 90% bandwidth
+savings vs forwarding raw streams to cloud.
+
+12.2 ROBOTICS NAVIGATION
+Collision avoidance reaction time <10ms; cloud round-trip 100ms+ -- cannot
+tolerate cloud dependency. Pipeline fuses camera + LiDAR + 6-axis IMU via
+complementary filter for localisation. Object detection on Jetson using
+TensorRT-optimised YOLO Nano <10ms/frame. Obstacle map feeds motion planner
+at 100 Hz. Cloud used ONLY for periodic map sync and logging -- never in the
+latency-critical path.
+
+12.3 INDUSTRIAL QUALITY INSPECTION
+High-res line-scan camera + CNN classifier identifies surface defects at
+1,200 parts/minute. Three classes: pass, fail, marginal -- triggers pneumatic
+actuator to divert failing parts in real time. Results logged to InfluxDB
+Edge with timestamps for traceability. eKuiper rule fires supervisor alert
+when >3 consecutive defects detected. Intel Movidius Neural Compute Stick +
+OpenVINO achieves sub-5ms classification latency per frame.
+
+12.4 HEALTHCARE WEARABLES
+Raw ECG, PPG, SpO2 signals processed entirely on-device by tiny LSTM or
+threshold classifier. Arrhythmia alerts generated locally <50ms. Raw
+physiological signals NEVER leave the device -- satisfies both latency
+(immediate alerting) and privacy (HIPAA prohibits PHI transmission to
+unapproved servers). Architectural approach used by Apple Watch's ECG
+feature.
+
+--------------------------------------------------------------------------------
+MODULE 3 -- KEY TERMS GLOSSARY
+--------------------------------------------------------------------------------
+At-least-once (QoS 1) -- MQTT delivery guarantee: message arrives at least
+  once; duplicates possible; consumer must deduplicate.
+At-most-once (QoS 0) -- MQTT fire-and-forget: no delivery guarantee; lowest
+  overhead.
+Butterworth filter -- Low-pass filter removing high-frequency noise while
+  preserving signal shape; CMSIS-DSP on MCU.
+CMSIS-DSP -- ARM's optimised fixed-point DSP library for FFT/filtering on
+  Cortex-M.
+Complementary filter -- Fuses gyroscope (short-term accuracy) with
+  accelerometer (long-term stability); scalar arithmetic only.
+Data-level fusion -- Combines raw sensor readings before feature extraction;
+  simplest, least fault-tolerant.
+Decision-level fusion -- Combines output predictions from independent
+  per-sensor models; most fault-tolerant.
+DMA -- Direct Memory Access; sensor-to-RAM transfer without CPU involvement.
+Edge AI -- (carried from M1) ML inference on edge devices.
+EdgeX Foundry -- Linux Foundation open-source IoT middleware; vendor-neutral;
+  300+ protocols; fully offline capable.
+eKuiper -- EdgeX Foundry's SQL-like stream processing and rule engine.
+Exactly-once (QoS 2) -- MQTT 4-step handshake (PUBLISH/PUBREC/PUBREL/
+  PUBCOMP); guarantees exactly one delivery.
+Feature extraction -- Converting windows of raw signal samples into compact
+  numeric feature vectors.
+Feature-level fusion -- Extracts features per sensor independently, then
+  concatenates vectors before model input.
+FFT -- Fast Fourier Transform; decomposes time-domain signal into frequency
+  components.
+Flash write endurance -- NOR ~100K cycles; NAND ~10K cycles per sector;
+  limits logging-intensive MCU applications.
+gRPC -- Binary RPC protocol using Protobuf over HTTP/2; edge
+  microservice-to-microservice communication.
+InfluxDB Edge -- Time-series database with retention policies and tag-based
+  queries; designed for sensor telemetry.
+Interrupt-driven ingestion -- CPU wakes only on GPIO interrupt; power-
+  efficient; preferred for battery-powered devices.
+Kalman filter -- Mathematically optimal recursive estimator for linear
+  Gaussian systems; requires matrix arithmetic.
+Latency budget -- Maximum allowed time from sensor event to actuator
+  response; robotics <10ms; cloud 100-500ms.
+LevelDB -- Key-value store with LSM-tree architecture; high-throughput
+  sequential write logging.
+LittleFS -- Crash-safe (atomic writes), wear-levelling filesystem for MCU
+  Flash storage.
+LWT (Last Will and Testament) -- MQTT mechanism publishing a pre-configured
+  message on unexpected client disconnect.
+MFCC -- Mel-Frequency Cepstral Coefficients; 13-coefficient standard feature
+  for audio keyword spotting.
+MQTT -- Message Queuing Telemetry Transport; 2-byte header pub-sub protocol;
+  dominant IoT standard.
+Polling -- CPU reads sensor at fixed intervals; simple but continuously
+  active; poor power efficiency.
+Retained message -- Last MQTT message on a topic stored by broker; delivered
+  immediately to new subscribers on connection.
+RMS -- Root Mean Square = sqrt(1/N x sum(xi^2)); measures signal energy;
+  standard vibration monitoring metric.
+Session window -- Streaming window closing after a configurable inactivity
+  period; models burst-mode device activity.
+Sliding window -- Overlapping window of size W advancing by step S < W; one
+  result every S seconds.
+SQLite -- Serverless relational database (~500KB); zero administration; ACID
+  transactions; most deployed DB on Earth.
+Tumbling window -- Non-overlapping fixed-length streaming window; each event
+  belongs to exactly one window.
+Z-score normalisation -- z = (x - mu) / sigma; produces zero mean and unit
+  variance; robust to outliers.
+
+--------------------------------------------------------------------------------
+MODULE 3 -- PRACTICE QUESTIONS WITH FULL ANSWERS
+--------------------------------------------------------------------------------
+
+Q1. A factory vibration sensor samples at 5,000 Hz and publishes readings
+over cellular to a cloud anomaly detection system. The cloud link costs
+$0.15/MB. Calculate the daily transmission cost if: (a) all raw samples are
+transmitted (32-bit float, 1 sample/read), and (b) 32 FFT spectral bins are
+computed per 1,024-sample window on the edge and only the feature vector is
+transmitted. Explain the architectural principle this illustrates.
+
+ANSWER:
+(a) Raw transmission: 5,000 samples/s x 4 bytes x 86,400 s = 1,728,000,000
+    bytes = 1,728 MB/day. Cost: 1,728 x $0.15 = $259.20/day.
+(b) Feature transmission: 5,000/1,024 ~= 4.88 windows/s. Each window = 32
+    bins x 4 bytes = 128 bytes. Daily: 4.88 x 128 x 86,400 ~= 53.9 MB. Cost:
+    53.9 x $0.15 = $8.09/day.
+BANDWIDTH REDUCTION: 1,728/53.9 ~= 32x (matching the window-to-feature
+ratio).
+ARCHITECTURAL PRINCIPLE: "reduce volume, retain signal" -- on-device feature
+extraction transmits only the information-bearing representation, not the
+raw measurement stream. This makes large-scale edge IoT economically viable
+where raw streaming would be prohibitive.
+
+Q2. An embedded IoT gateway uses LittleFS on a 4MB NOR Flash chip. A factory
+application logs one 64-byte event record every 500ms. The Flash has NOR
+write endurance of 100,000 cycles per sector, with 4KB sectors. How long will
+the Flash last if all writes are concentrated on a single sector? How does
+LittleFS change this?
+
+ANSWER:
+Single-sector scenario: 1 write / 0.5s = 2 writes/s. Each 4KB sector can be
+erased ~100,000 times. At 2 writes/s (assuming a 4KB erase per 64 writes of
+64-byte records = 1 erase per 32 seconds): 100,000 erases / (1/32 erases/s) =
+3,200,000 seconds ~= 37 days before that sector fails.
+LITTLEFS WEAR-LEVELLING distributes writes across all available sectors:
+4MB / 4KB = 1,024 sectors. With wear levelling: 37 days x 1,024 = ~37,900 days
+~= 103 YEARS before any sector exhausts its endurance.
+LittleFS also provides ATOMIC WRITES -- a power interruption never produces a
+partially-written record that corrupts the filesystem. Both properties are
+critical for industrial deployments.
+
+Q3. A smart agricultural robot fuses a gyroscope (drifts 1°/minute) with an
+accelerometer (noise sigma = 0.5°) using a complementary filter with alpha =
+0.98. After 5 minutes of operation at 100Hz, the gyroscope has accumulated a
+drift error of 5°. Calculate the corrected angle after one filter update
+step, starting from an angle of 45° (gyroscope) vs 41° (accelerometer).
+
+ANSWER:
+Complementary filter: angle_corrected = alpha x angle_gyro + (1-alpha) x
+angle_accel = 0.98 x 45 + 0.02 x 41 = 44.1 + 0.82 = 44.92°.
+Without the filter, the robot would use 45° (raw gyroscope reading), carrying
+the full drift error. After correction, the filter estimate is 44.92°, which
+moves toward the true angle and continuously converges over subsequent
+updates. The accelerometer's 2% weight provides enough correction force to
+prevent the 1°/minute drift from accumulating into navigation failure, while
+the gyroscope's 98% weight ensures the filter responds instantly to genuine
+rotation.
+
+Q4. A factory robot arm controller must receive valve open/close commands
+via MQTT. The operations team also needs to monitor 50 vibration sensors
+publishing readings at 10 Hz each. The robot arm is safety-critical; sensor
+readings are informational. Design the MQTT architecture: specify the QoS
+level for each data stream, topic naming convention, and explain the
+reasoning for each choice.
+
+ANSWER:
+ROBOT ARM COMMANDS: QoS 2 (exactly-once). A valve open command must arrive
+exactly once -- QoS 0 risks the command being lost (valve never opens,
+machine doesn't start), and QoS 1 risks the command arriving twice (valve
+opens, closes, then opens again from the duplicate -- a safety hazard). The
+4-step PUBLISH/PUBREC/PUBREL/PUBCOMP handshake ensures exactly one delivery.
+Topic: factory/arms/arm-07/cmd.
+VIBRATION SENSOR READINGS: QoS 0 (at-most-once). At 10Hz, a lost reading is
+immediately replaced by the next. The cost of QoS 1 or 2 overhead across
+50 x 10 = 500 messages/second would be substantial. Topic convention:
+factory/vibration/{sensor_id}/reading -- using the + wildcard for
+subscription: factory/vibration/+/reading captures all 50 sensors.
+RETAINED MESSAGES on each arm's current state topic:
+factory/arms/{arm_id}/status with retain=True, so any newly connected
+supervisor immediately knows the arm's current position and mode.
+
+Q5. An industrial organisation with 400 heterogeneous IoT sensors (Modbus
+RTU, OPC-UA, BACnet, custom serial protocols) needs an edge analytics
+platform. They have no cloud subscription, operate under an open-source
+software mandate, and need SQL-like stream analytics to fire alerts on
+sensor events. Which framework should they select and why? What specific
+components address each requirement?
+
+ANSWER: EdgeX Foundry.
+REASONING:
+(1) No cloud subscription -- EdgeX is fully offline capable; runs entirely
+    on-premise with no cloud dependency required for operation, management,
+    or data storage.
+(2) Open-source mandate -- EdgeX is a Linux Foundation project under Apache
+    2.0 licence.
+(3) Protocol diversity -- EdgeX's Device Services layer provides pre-built
+    connectors for Modbus RTU, OPC-UA, BACnet, and serial protocols, with a
+    published SDK for custom protocol connectors.
+(4) SQL-like stream analytics -- EdgeX includes eKuiper (formerly EMQ X
+    Kuiper), an embedded SQL stream processing engine that evaluates rules
+    against real-time sensor events. Example eKuiper rule:
+    SELECT vibration_rms FROM sensors WHERE vibration_rms > 5.0 -- triggers
+    an alert without any cloud round-trip.
+FOUR-LAYER ARCHITECTURE: Device Services (protocol translation) -> Core
+Services (data storage + routing) -> Supporting Services (eKuiper rules +
+alerts) -> Application Services (export to on-premise historian or optional
+cloud).
+
+
+################################################################################
+QUICK CROSS-MODULE REVISION CHECKLIST
+################################################################################
+
+Before the exam, make sure you can do ALL of the following WITHOUT notes:
+
+MODULE 1
+[ ] State the four constraints driving Edge AI adoption with one number each
+[ ] Apply the 5-question deployment decision framework to a new scenario
+[ ] Draw/describe the 5-stage Edge AI pipeline (Sense->Pre-process->Infer->
+    Post-process->Actuate)
+[ ] Explain split inference, adaptive offloading, and federated learning in
+    one sentence each
+[ ] Recall the Cloud/Fog/Edge comparison table (latency, bandwidth, privacy,
+    connectivity, power)
+[ ] Explain why FaceID, Tesla FSD, and Alexa each illustrate a different
+    architectural principle
+
+MODULE 2
+[ ] State the three vertices of the Constraint Triangle + the 4th override
+[ ] Calculate Arithmetic Intensity and determine compute-bound vs
+    memory-bound
+[ ] Recall TOPS/W ranges for CPU, GPU, NPU, Edge TPU, FPGA, ASIC
+[ ] Explain QAT vs PTQ and which hardware mandates which
+[ ] Perform an MCU battery life calculation from active/sleep power figures
+[ ] Explain secure boot, TrustZone, TRNG, and PUF in one sentence each
+[ ] Recall which RTOS is mandatory for IEC 62304 / DO-178C / ISO 26262
+
+MODULE 3
+[ ] List the four types of edge data
+[ ] Compare polling vs interrupt-driven vs DMA ingestion
+[ ] Write the Z-score and RMS formulas from memory
+[ ] Distinguish tumbling, sliding, and session windows; calculate results/min
+[ ] Write the complementary filter formula and explain alpha=0.98
+[ ] State all three MQTT QoS levels and their message exchange steps
+[ ] Distinguish MQTT vs gRPC vs Kafka vs REST vs CoAP by use case
+[ ] Match EdgeX / AWS Greengrass / Azure IoT Edge to an organisational
+    scenario
+
+================================================================================
+END OF NOTES -- AIML ZG535 / AML ZC421 -- Machine Learning on the Edge
+Good luck on your midsem this weekend!
+================================================================================

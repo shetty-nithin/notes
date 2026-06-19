@@ -1,0 +1,444 @@
+                                ==========================
+                                Unsupervised Deep learning
+                                ==========================
+
+1. Why Unsupervised Deep Learning Exists
+    Almost all the deep learning success stories you hear about — image classification, machine translation,
+    speech recognition — rely on supervised learning, which needs labeled data. That's a massive bottleneck for
+    three reasons.
+
+    First, labels are expensive. Annotating millions of images, transcribing speech, or labeling medical scans
+    requires human experts and time. Most data in the world is unlabeled — raw text, raw images, raw sensor streams.
+    Second, supervised models learn only what you tell them to learn. If you train a classifier to distinguish cats
+    from dogs, it learns nothing about the broader structure of images — textures, shapes, lighting. It's narrow by
+    construction.
+    Third, and most importantly for where the field is headed: the biggest models today (GPT-style language models,
+    vision transformers pretrained at scale) are not trained primarily with human-labeled data. They're trained with
+    unsupervised or self-supervised objectives on raw, unlabeled corpora, and then fine-tuned on small labeled
+    datasets. Unsupervised deep learning is the engine behind that pretraining stage.
+
+
+    Important concepts:
+        1. Representation learning and autoencoders
+        2. Generative models (the probabilistic ones: RBMs, VAEs)
+        3. Generative Adversarial Networks (GANs)
+        4. Self-supervised learning
+        5. Clustering and dimensionality reduction in deep settings
+        6. Energy-based models
+        7. Diffusion models (likely the modern centerpiece)
+
+2. Autoencoders — The Foundational Idea
+    An autoencoder is a neural network trained to reconstruct its own input. It has two parts:
+        * an encoder that compresses input x into a lower-dimensional latent code z
+                z = f_theta(x)
+        * a decoder that reconstructs x^ from z
+                x_hat = g_phi(z)
+
+    Loss function (reconstruction error):
+          L = || x - x_hat ||^2
+
+    Key variants you should know:
+        * Denoising Autoencoder:
+            Corrupt the input (add noise) and train the network to reconstruct the clean version.
+            This forces the model to learn robust features rather than memorizing.
+        * Sparse Autoencoder: 
+            Add a sparsity penalty on the latent activations, encouraging the model to use only a few active
+            neurons per input — this often yields more interpretable features.
+        * Variational Autoencoder (VAE): 
+            A probabilistic reinterpretation, covered next — this is the big one.
+
+3. Variational Autoencoders (VAE)
+    A regular autoencoder learns a deterministic mapping to a single point in latent space. A VAE instead
+    learns a DISTRIBUTION over latent space, which makes it a true generative model (we can sample new data from it).
+         
+    The Setup:
+        Assume data x is generated from some latent variable z via p(x|z), and z comes from a simple prior,
+        usually p(z) = N(0, I) [standard normal]. The true posterior p(z|x) is intractable, so we approximate it
+        with an encoder network q_phi(z|x) that outputs a mean and variance:
+
+        q_phi(z|x) = N( mu(x), sigma^2(x) )
+         
+    Loss Function - The Elbo (Evidence Lower Bound):
+    -----------------------------------------------
+        L = E_q[ log p_theta(x|z) ]  -  D_KL( q_phi(z|x) || p(z) )
+             
+        Term 1 (Reconstruction term):
+          E_q[ log p_theta(x|z) ]
+          The decoder should reconstruct x well from sampled z.
+             
+        Term 2 (Regularization term):
+          D_KL( q_phi(z|x) || p(z) )
+          The encoder's distribution should not drift too far from the standard normal prior.
+          This keeps the latent space smooth and continuous so that sampling random z values produces sensible outputs.
+         
+        Why VAEs Matter?:
+        They are the bridge from deterministic autoencoders to full probabilistic generative modeling. They
+        introduce variational inference, a concept that reappears throughout deep generative models, including
+        diffusion models.
+
+4.  Restricted Boltzmann machines (RBMs)
+     
+    Older but still taught because they introduce energy-based thinking and were historically used to pretrain
+    Deep Belief Networks (Hinton's work).
+     
+    Two-layer network:
+        visible units (v) and hidden units (h),
+        with NO connections within a layer (hence "restricted").
+     
+    Energy Function:
+      E(v, h) = - sum_i( a_i * v_i ) - sum_j( b_j * h_j ) - sum_ij( v_i * h_j * w_ij )
+     
+    Probability Distribution:
+      p(v, h) = exp( -E(v, h) ) / Z
+     
+      where Z is the partition function (normalizing constant), generally intractable to compute exactly.
+     
+    Training:
+    Uses CONTRASTIVE DIVERGENCE, an approximate method using Gibbs sampling, 
+    because exact maximum likelihood training is computationally infeasible.
+     
+    Note: 
+    Stacking RBMs gives a Deep Belief Network - historically one of the first ways to pretrain deep networks 
+    layer-by-layer before end-to-end backpropagation became reliable. Less used in practice now, but explains
+    why energy-based and contrastive learning ideas became important again later.
+
+5. Generative Adversarial Networks (GANs)
+    A completely different philosophy: instead of explicitly modeling a probability distribution, train two
+    networks against each other.
+
+    * Generator G: takes random noise z and produces fake data G(z)
+    * Discriminator D: tries to distinguish real data from generated data.
+
+    The minimax objective:
+            min_G max_D   E_x[ log D(x) ]  +  E_z[ log(1 - D(G(z))) ]
+
+
+        D is trained to maximize its ability to tell real from fake
+        G is trained to fool D
+        At the theoretical optimum, G produces samples indistinguishable from real data, and D outputs 0.5 everywhere.
+
+    Why GANs are hard:
+        * Mode collapse: the generator finds a few outputs that fool the discriminator and stops exploring diversity.
+        * Training instability: the two networks chase each other and can oscillate rather than converge.
+        * Vanishing gradients: if D becomes too good too fast, G gets no useful gradient signal.
+
+6. Self-Supervised Learning
+    This is the most modern and arguably most important paradigm in your syllabus, because it's what powers today's
+    large pretrained models.
+
+    The idea:
+    construct a "fake" supervised task from unlabeled data itself, where the label is derived from the
+    data, not from human annotation. Examples:
+
+    Contrastive learning (e.g., SimCLR):
+    Take an image, create two augmented versions of it, and train the network so that representations of the two
+    augmented versions are close together, while representations of different images are pushed apart.
+    The loss used is typically InfoNCE:
+
+    L = - log [ exp( sim(z_i, z_j) / tau ) / sum_k( exp( sim(z_i, z_k) / tau ) ) ]
+ 
+    where:
+        z_i, z_j = representations of two augmented views of the SAME image
+        sum over k = runs over all other samples in the batch (negatives)
+        τ = temperature parameter
+
+
+    * Masked prediction (BERT-style, or masked autoencoders for images):
+        Hide part of the input and train the model to predict the missing part from context.
+    * Pretext tasks:
+        Predicting image rotation, solving jigsaw puzzles of image patches, predicting the next frame of video —
+        anything where you can automatically generate a label from raw data.
+
+7. Deep Clustering and Dimensionality Reduction
+    Classical clustering (k-means, GMMs) does not work well on raw high-dimensional data like images,
+    because distance metrics in pixel space are not meaningful.
+     
+    Deep Clustering:
+        Combines representation learning with clustering objectives.
+        Example: 
+            Deep Embedded Clustering (DEC) learns an autoencoder embedding AND a 
+            clustering assignment simultaneously, refining both together.
+     
+    Dimentionality Reduction:
+        - Classical method: PCA
+        - Deep learning extension: the autoencoder's bottleneck layer
+        - For visualization specifically: t-SNE and UMAP, which preserve local neighborhood structure when
+          projecting high-dimensional embeddings into 2D space.
+
+8. Where do diffusion models sit in the taxonomy, and why?
+    Diffusion models sit under Explicit Density --> Approximate Density (alongside VAEs), because they optimize a
+    variational lower bound on the log-likelihood rather than computing it exactly - they do NOT sit under implicit
+    density, even though sampling requires an iterative (multi-step) process like a Markov chain. The key distinguishing
+    factor is that they still define and optimize an explicit (approximate) likelihood objective, unlike GANs.
+ 
+9. Why is a GAN called "implicit density"?
+    A GAN never writes down or computes p_model(x) for any x. It only defines a sampling procedure
+    (pass noise z through generator G). 
+    There is no likelihood term anywhere in the GAN objective - training uses a discriminator-based adversarial
+    signal instead of maximum likelihood.
+
+10. PCA
+    An exploratory technique to reduce dimensionality of a dataset, commonly down to 2D or 3D for visualization.
+
+    PCA Algorithm:
+      1. Let X_bar be the mean vector (mean of all rows/samples).
+      2. Mean-center the data:           X' = X - X_bar
+      3. Compute the covariance matrix C of the mean-centered data X'.
+      4. Find the eigenvectors and eigenvalues of C:
+           For matrix C, a vector e (column vector) has the same direction 
+           as Ce if:   C e = lambda e     (lambda is the eigenvalue of C)
+           Equivalently:  (C - lambda*I) e = 0
+      5. Sort eigenvalues lambda_j in DECREASING order (they correspond to variance captured along each component j).
+      6. Take the first p eigenvectors e_i (those with the LARGEST p eigenvalues) -
+         these define the directions of largest variance.
+      7. Project the (mean-centered) data onto these p eigenvectors to get the final reduced-dimensional representation:
+     
+           [y_i1]     [e_1]^T   [x_i1 - x_bar_1]
+           [y_i2]  =  [e_2]^T   [x_i2 - x_bar_2]
+           [ .. ]     [ ..]     [      ..      ]
+           [y_ip]     [e_p]^T   [x_in - x_bar_n]
+ 
+
+    Psuedo Code:
+        Goal: Find r-dimention projection that best preserves variance
+        1. Compute mean vector and covariance matrix of original points
+        2. Compute eigen vector and eigen values 
+        3. Select top r eigen vectors
+        4. Project points onto subspace spanned by them
+            y = A(x - mu)
+            where:
+                y is the new point, x is the old one, and the row of A are the eigen vectors.
+
+    Interpretation of PCA:
+        - 1st Principal Component (PC1): the eigenvector with the LARGEST eigenvalue;
+                                         indicates the direction of GREATEST variance in the data.
+        - 2nd Principal Component (PC2): the direction with the MAXIMUM remaining variation,
+                                         subject to being ORTHOGONAL to PC1.
+
+    Limitations of PCA:
+        i. PCA is unsupervised and variance-maximizing, but high variance doesn't guarantee good class separability.    
+        ii. Complex distributions may need NON-LINEAR processing for dimensionality reduction,
+            since PCA only finds LINEAR projections.
+
+    * Randomized PCA:
+    ----------------
+        A faster, approximate algorithm for computing PCA, useful when exact eigen-decomposition is
+        too slow for very large datasets.
+    * Incremental PCA:
+    -----------------
+        i. Divide Data into Batches: The data is divided into smaller batches that can comfortably fit into memory.
+        ii. Partial Fit: Incremental PCA performs a 'partial fit' on each mini-batch rather than a 'fit' on the
+                         entire dataset.
+        iii. Update Principal Components: After each partial fit, the principal components get updated, which means
+                                          the final components are an approximation of the components that would have
+                                          been obtained by running traditional PCA on the full dataset.
+        iv. Data Transformation: Once all mini-batches have been processed, the data can be transformed into the
+                                 reduced-dimensional space based on the final principal components.
+
+        Advantages:
+            - Memory efficient (much more so than traditional/batch PCA).
+            - Supports ONLINE learning - suitable when new data points continue to arrive.
+        Limitations
+            - Approximate Results: The principal components are approximations, which might be less accurate than
+                                    the ones obtained from traditional PCA.
+            - Computational Overhead: The continual update of components can result in increased computation time.
+
+    * Kernel PCA:
+    ------------
+        KPCA is an extension of PCA that uses KERNEL METHODS to map data to a HIGHER-dimensional space,
+        and then performs ordinary PCA in that new space. The mapping itself, phi(x), may be too expensive to
+        compute explicitly, so it is done implicitly via a KERNEL. 
+
+
+
+    USES (list, possible short-answer):
+        - Reduce number of dimensions in data.
+        - Find patterns in high-dimensional data.
+        - Visualize high-dimensional data.
+     
+    EXAMPLE APPLICATIONS (list, possible short-answer):
+        - Face recognition
+        - Image compression
+        - Gene expression analysis
+
+11. Independent Component Analysis(ICA)
+    - PCA finds an ORTHOGONAL coordinate system, focusing on UNCORRELATED and GAUSSIAN components, using SECOND-ORDER
+      statistics (variance/covariance only).
+    - ICA finds a (generally) NON-ORTHOGONAL coordinate system, focusing on INDEPENDENT and NON-GAUSSIAN components,
+      using HIGHER-ORDER statistics (beyond just variance/covariance).
+
+    The cocktail party problem:
+        - Setup: multiple independent sound sources in a room (e.g., different people talking).
+        - Multiple sensors (microphones) each receive a MIXTURE of the original signals.
+        - Goal: estimate/recover the ORIGINAL source signals from only the observed MIXTURES.
+        - This is called BLIND SOURCE SEPARATION (BSS) because the MIXING PARAMETERS
+          (how much of each source reaches each microphone) are UNKNOWN/not given.
+
+    Application of ICA:
+        - Blind source separation
+        - Image denoising
+        - Medical signal processing (fMRI, ECG, EEG)
+        - Modelling of hippocampus and visual cortex
+        - Feature extraction, face recognition
+        - Compression, redundancy reduction
+        - Watermarking
+        - Clustering
+        - Time series analysis (e.g., stock market, microarray data)
+        - Topic extraction
+        - Econometrics (finding hidden factors in financial data)
+
+12. COVARIANCE AND THE COVARIANCE MATRIX
+    VARIANCE vs COVARIANCE (definitions, easy short-answer):
+    - Variance: measures the deviation from the mean for points along ONE dimension.
+            Variance = (standard deviation)^2.
+    - Covariance: measures how much TWO dimensions vary from their means w.r.t each other. Covariance between a
+      dimension and ITSELF is just the variance of that dimension.
+     
+    SIGN INTERPRETATION (commonly tested):
+    - Cov(X,Y) = 0  -->  X and Y are independent (uncorrelated)
+    - Cov(X,Y) > 0  -->  X and Y move in the SAME direction (both increase or decrease together)
+    - Cov(X,Y) < 0  -->  X and Y move in OPPOSITE directions (as one increases, the other decreases)
+
+
+    THE COVARIANCE MATRIX (generalizes covariance to MORE than 2 attributes - very likely to be tested as
+    "construct the covariance matrix"):
+     
+    For n attributes, the covariance matrix C is n x n, where:
+     
+        C_nxn = ( c_ij | c_ij = cov(Dim_i, Dim_j) )
+     
+    Worked example for three attributes (x, y, z) - reproduce this 3x3 structure exactly if asked:
+     
+               [ cov(x,x)  cov(x,y)  cov(x,z) ]
+      C   =    [ cov(y,x)  cov(y,y)  cov(y,z) ]
+               [ cov(z,x)  cov(z,y)  cov(z,z) ]
+     
+    Key properties to remember about C:
+        - C is SYMMETRIC (cov(x,y) = cov(y,x)), since covariance doesn't care about order.
+        - The DIAGONAL entries are variances (cov(x,x) = Var(x), etc.).
+        - C is the matrix whose EIGENVECTORS define the principal components.
+
+13. EIGENVALUES AND EIGENVECTORS (APPENDIX - PURE MATH, HEAVILY TESTABLE AS COMPUTATION QUESTIONS)
+     
+    For a square matrix A, a vector x is an EIGENVECTOR of A, and lambda is the corresponding EIGENVALUE, if:
+     
+        A x = lambda x
+     
+    Important Rules (commonly tested as true/false or fill-in-the-blank):
+        - The ZERO VECTOR can NEVER be an eigenvector.
+        - The value ZERO CAN be an eigenvalue (this is allowed).
+     
+    DERIVATION OF THE CHARACTERISTIC EQUATION:
+     
+      A x = lambda x
+      A x - lambda x = 0
+      (A - lambda I) x = 0
+     
+     
+        det(A - lambda I) = 0      <-- THE CHARACTERISTIC EQUATION
+ 
+      Solving this polynomial equation in lambda gives you the eigenvalues. Then for each eigenvalue,
+      solve (A - lambda I) x = 0 to find the corresponding eigenvector(s).
+
+14. What Canonical Correclation Analysis(CCA) does?
+    Measures the LINEAR RELATIONSHIP between TWO multi-dimensional variables. It finds two sets of BASIS VECTORS
+    such that the CORRELATION between the PROJECTIONS of the two variables onto these basis vectors is MAXIMIZED.
+
+    Key Properties:
+        - More than one canonical correlation can be found, each corresponding 
+          to a DIFFERENT pair of basis vectors (called CANONICAL VARIATES).
+        - Correlations between SUCCESSIVELY extracted canonical variate pairs get SMALLER and SMALLER
+          (similar in spirit to how PCA's eigenvalues decrease for successive components).
+        - Correlation coefficients represent the PROPORTION of correlation 
+          between canonical variates accounted for by a particular variable.
+
+    Limitations of CCA:
+        - Recommended to have AT LEAST 40 TO 60 TIMES as many cases (samples) as variables, to get reliable
+          estimates for two canonical roots. (Citation: Barcikowski & Stevens, 1986 - know this citation if asked 
+          for the source of this rule of thumb.)
+        - OUTLIERS can greatly affect/distort the canonical correlation estimates.
+        - The variables in the TWO sets being related should NOT be completely REDUNDANT with each other
+          (otherwise the analysis is degenerate/trivial).
+
+15. LOCALLY LINEAR EMBEDDING (LLE)
+    - A NONLINEAR DIMENSIONALITY REDUCTION (NLDR) technique.
+    - A MANIFOLD LEARNING technique that does NOT rely on projections.
+
+16. What is a "factor" in factor analysis?
+   A combination of observed variables, potentially without obvious physical meaning, used as a more effective
+   basis for insight than the raw original variables.
+ 
+17. PCA's basis vector constraints?
+   Orthonormal: u_i^T u_j = 0 (orthogonal) and ||u_j|| = 1 (unit norm).
+ 
+18. PCA projection formula (mean-centered)?
+    h(x) = U^T (x - mu_0), where mu_0 = (1/N) sum x_i.
+ 
+19. Covariance sign interpretation?
+    =0 independent; >0 same direction; <0 opposite direction.
+ 
+20. Sample covariance formula?
+    cov(X,Y) = [sum (X_i - X_bar)(Y_i - Y_bar)] / (n-1)
+ 
+21. Characteristic equation for eigenvalues?
+    det(A - lambda*I) = 0
+ 
+22. Can the zero vector be an eigenvector? Can zero be an eigenvalue?
+    Zero vector: never an eigenvector. Zero: CAN be an eigenvalue.
+ 
+23. 7 steps of full PCA algorithm?
+    (1) Compute mean. (2) Mean-center data. (3) Compute covariance 
+    matrix. (4) Find eigenvectors/eigenvalues of covariance matrix. 
+    (5) Sort eigenvalues descending. (6) Keep top p eigenvectors. 
+    (7) Project mean-centered data onto top p eigenvectors.
+ 
+24. Percent variance explained by component j?
+    V_j = 100 * lambda_j / sum(all lambda)
+ 
+25. KPCA's two key formulas?   
+   Kernel trick observation: K = Phi(X)Phi(X)^T. We only need 
+   Phi(x_i)^T Phi(x_j), never Phi(x) explicitly.
+ 
+26: Scaling difference between PCA and KPCA?
+    PCA's covariance matrix scales with input dimensions n. KPCA's kernel matrix scales with number of data points d.
+ 
+27. Three limitations of PCA and their fixes?
+    (1) Variance != relevance --> RCA/FDA. (2) Uncorrelated != 
+    independent --> ICA. (3) Linear only --> Curvilinear Component 
+    Analysis (CCA, non-linear PCA variant).
+ 
+28. PCA vs ICA - core contrast?
+    PCA: orthogonal, Gaussian/uncorrelated, 2nd-order statistics. ICA: 
+    non-orthogonal, non-Gaussian/independent, higher-order statistics.
+ 
+25. ICA model equation?
+    x = A*s (vector form), or x_i = sum_j a_ij * s_j (component form). 
+    Recoverable up to permutation and scaling if sources are statistically independent.
+ 
+26. What happens to ICA if multiple sources are Gaussian?
+    Non-Gaussian components can still be estimated; only a LINEAR 
+    COMBINATION of the Gaussian ones can be recovered, not each 
+    individually. With only ONE Gaussian component, the full model can 
+    still be estimated.
+ 
+27. What does Canonical Correlation Analysis (CCA) do?
+    Finds two sets of basis vectors (for two different multivariate 
+    datasets) that MAXIMIZE the correlation between the projections of 
+    the two datasets onto those vectors.
+ 
+28. Recommended sample-to-variable ratio for reliable CCA?
+    At least 40 to 60 times as many cases as variables (Barcikowski & Stevens, 1986).
+ 
+29. How does LLE work (2 steps)?
+    (1) Measure how each point linearly relates to its nearest 
+    neighbors in the original space. (2) Find a low-dimensional 
+    embedding that best preser:ves those same local linear 
+    relationships.
+ 
+30. How does t-SNE work (2 parts)?
+    (1) Compute pairwise neighbor probabilities in high-D using a 
+    Gaussian kernel. (2) Find a low-D embedding that preserves those 
+    probabilities, by minimizing the divergence between high-D and 
+    jlow-D probability distributions via gradient descent.
+     
+                 

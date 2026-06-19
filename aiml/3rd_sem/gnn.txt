@@ -1,0 +1,1468 @@
+----------------------------------------------------------------------------------------------------------
+                                        Graph Neural Network
+----------------------------------------------------------------------------------------------------------
+
+1. Why GNN are required?
+    Most real world data isn't a table of independent rows. Its connected.
+        - A molecule isn't just a bag of atoms, its atoms bounded in a specific structures. 
+        - A social network isn't just a list of users
+        - A citt's traffic isn't just a road segments.
+The meaning lives in the connection, not just the entities themselves. Classical ML ignores this entirely.
+
+2. What Classical ML assumes(and why it breaks)?
+    Every standard algorithm such as SVM, MLP, CNN, RNN assumes our data fits a regular fixed structure.
+        - MLP: Fixed length vector inputs
+        - CNN: Requires a regular grid
+        - RNN: Requires a sequence with a natural order
+
+3. The three core problems GNNs solves
+    a. Variable, irregular neighbourhoods: Every node has different number of neighbours in no fixed order.
+       GNNs handle this via message passing - each node aggregates information from however many neighbourhood
+       it has, using a shared fucntion. No fixed size required.
+    b. Structural information must be learned, not discarded:
+       Two molecules with identical atom counts but different bonding structures have compleletely different
+       properties. A node's identity in a graph depends on where it sits structurally - its neighbours,
+       the topology. GNNs encode exactly this by propagating the information across the graph layer by layer.
+    c. Generalizastion across graphs:
+
+4. A concrete example
+    Take drug discovery. We want to predict whether a molecule is toxic.
+        * The molecule has atoms(Carbon, Nitrogen, Oxygen...) connected by bonds(single, double, aromatic...).
+        * A CNN sees no grid, An MLP sees no structure. An RNN sees no sequence.
+        * A GNN sees exactly what a chemist sees: atoms as nodes with chemical features, bonds as edges with
+          bond type features. it passes messges along bonds, aggregating chemical context, and learns which
+          structural patterns correlate with toxicity.
+
+    This is why GNNs are used at every major pharmaceutical company today.
+
+
+5. The core mechanism:
+For each node v:
+    * gather message from neighbors
+    * aggregate them(sum, mean, max ...)
+    * update node's own representation
+    * repeat for k layers -> captures k-hop neighborhood
+
+6. x is neighbor of y => x ~ y
+
+7. Three properties of graphs that break CNNs, RNNs, Transformers
+    * Variable neighbourhood size: More precise: it's not just graph size but the local fan-in that varies node-by-node
+    * Non canonical ordering of neighbours: A pixel has a distinguished north, east, etc. neighbor; the three neighbors of
+    a carbon atom do not. Any architecture that indexes neighbors must pick an arbitrary order or pay a factorial cost.
+    * Non-Euclidean geometry: Grids and sequences live in Rd with Euclidean distance. Graphs, in general, are not embedded
+      in any Euclidean space—the intrinsic metric is shortest-path distance.
+
+8. What are the two symmetries any GNN architecture must respect? Define each precisely.
+    1. Permutation Invariance (at the aggregation step)
+        Pooling a node's neighbours into a single vector must depend only on the multiset of neighbour features,
+        not on their ordering. If you list the neighbours in a different order, you must get the same result.
+    2. Permutation Equivariance (at the layer level)
+        Relabelling the vertices of the graph must produce a corresponding relabelling of the output features —
+        their values stay the same, only their assignment to nodes changes.
+
+    A GNN enforces both symmetries by construction, via message passing.
+
+9. i. The problem
+   ii. The graph formulation
+   iii. The role of GNN
+   iv. The headline empirical result
+
+10. What is a graph? Give the formal definition.
+    A graph G = (V, E) is an ordered pair where V is a finite set of vertices (nodes) and E is a set of unordered pairs of distinct
+    elements from V called edges. Note: E ⊆ V⁽²⁾ (the set of all 2-element subsets of V). For a directed graph (digraph), E is a set of
+    ordered pairs, so (u,v) ≠ (v,u).
+
+11. Give six real-world examples of graph-structured data, identifying nodes and edges for each.
+    Domain              Vertices                Edges
+    ---------          ----------              ---------------
+    Social network      People                  Friendships
+    Citation network    Papers                  Citations (directed)
+    Molecule            Atoms                   Chemical bonds
+    Web                 Webpages                Hyperlinks (directed)
+    Knowledge graph     Entities                Relationships
+    Transaction graph   Accounts                Transactions (directed, weighted)
+
+12. How is a road network modelled as a graph? What is the role of edge weights?
+    V = set of road intersections. 
+    E: two intersections are adjacent whenever they are joined directly by a road.
+    Edges carry weights representing the distance or time-delay for travelling that road segment.
+    Google Maps runs shortest-path algorithms on this graph to compute optimal routes.
+
+13. Why are citation network edges directed? Give the formal definition.
+    Citation is a one-way relationship: paper x cites paper y, but y does not necessarily cite x.
+    Formally: (x, y) ∈ E if paper x cites paper y. The edge goes from the citing paper to the cited paper.
+    The unordered set {x,y} is not used here because direction matters.
+
+14. Describe the Web Graph. What is Google's PageRank and how is it computed on this graph?
+    V = set of all URLs of webpages. E: (x, y) is an arc whenever webpage x has a hyperlink to webpage y.
+    These are hyperlinks (HTML anchor tags), not physical links.
+
+    PhageRank ranks webpages by the stationary distribution of a random walk on the web graph. Equivalently, it is the principal
+    eigenvector (corresponding to eigenvalue λ = 1) of the Google matrix — a column-stochastic version of the adjacency matrix with arc
+    teleportation term to handle dangling nodes.
+
+15. What makes a financial transaction graph special compared to a standard graph?
+    Three distinguishing properties:
+
+    i. Directed — money flows one way (x transfers to y ≠ y transfers to x)
+    ii. Multigraph — multiple transactions can exist between the same pair of accounts
+    iii. Edge features — each edge carries amount and timestamp
+
+    Example from slides: In a money-laundering scheme, Sean (criminal) funnels dirty money through a front
+    hotel (which also receives legitimate payments from Alice and Bob); the hotel pays shell companies,
+    which forward to Tim. A GNN on this graph can detect the suspicious multi-hop pattern.
+
+16. "A large enough MLP on a flattened adjacency matrix can approximate any graph function."
+     Is this a valid reason NOT to use GNNs? Explain.
+
+    This is the classic objection, and the answer is: true in principle, misleading in practice.
+
+    * An MLP would have to learn permutation invariance entirely from training data.
+    * That requires training examples covering every permutation of every input graph — combinatorially infeasible.
+    * A GNN generalises from exponentially less data because the symmetry is built into the architecture.
+
+17. What are the three levels of ML prediction tasks on graph data? Give two examples for each.
+    Level               Task                                    Examples
+    Node-level      Predict a label/value per node -------> Topic of a paper in a citation network;
+                                                            user category in a social network;
+                                                            protein function in PPI network
+    Link-level      Predict whether/how two --------------> Friend or product recommendation;
+                    nodes relate                            drug–drug interaction;
+                                                            missing facts in a knowledge graph
+    Graph-level     Predict a label/value for the --------> Molecule toxicity/solubility;
+                    whole graph                             protein fold classification;
+                                                            de novo molecule generation
+
+18. Explain GraphCast. What graph is used? What is the headline result?
+
+    i. Problem: Predict the global atmospheric state up to 10 days ahead. Previously done by ECMWF's HRES                            (numerically solving PDEs on a supercomputer) for 50+ years.
+    ii. Graph: Multi-scale icosahedral mesh on the globe. Vertices = points on the sphere.
+               Edges connect close points at multiple resolutions (M⁰ to M⁶).
+    iii. GNN role: Learned message passing replaces the PDE solver entirely.
+    iv. Result: Beats HRES on ~90% of 1,380 weather targets. Full 10-day global forecast in < 1 minute on a
+                single TPU. Predicted Hurricane Lee's Nova Scotia landfall 3 days earlier than operational systems.
+
+19. How does Google Maps use GNNs for ETA prediction?
+
+    i. Problem: Predict travel time on road-navigation queries at planet scale.
+    ii. Graph: Each road segment is a node (not intersections!). Edges connect segments that meet at an intersection.               Node features: live traffic, time-of-day, speed limit, road category.
+    iii. GNN role: Global road graph is partitioned into overlapping Supersegments.
+                   A message-passing GNN predicts travel times at multiple horizons per Supersegment.
+                   These predictions are composed along the user's route.
+    iv. Result: Reduced negative-ETA outcomes by 40%+ in many cities (Sydney 43%, Osaka 37%, Orlando 34%,
+                Singapore 31%, Taichung 51%). Serves >1 billion users/month.
+
+20. How was Halicin discovered using a GNN?
+
+    i. Problem: Identify new antibacterial compounds. No new antibiotic class has been discovered since the 1980s.
+    ii. Graph: Each molecule = a graph. Atoms = vertices (features: element, charge, hybridization).
+               Chemical bonds = edges (features: bond order, stereo).
+    iii. GNN role: A D-MPNN (Directed Message Passing Neural Network) trained on 2,335 molecules screened against
+                   E. coli, then used to rank a ~6,000-compound repurposing library.
+    iv. Result: Identified halicin (SU-3327), active against C. difficile, pan-resistant
+                A. baumannii, and M. tuberculosis. Still preclinical — not yet in human trials.
+
+21. Define: degree, in-degree, out-degree. State the Handshaking Lemma and prove it.
+
+    Degree: dᵤ = |N(u)| = Σᵥ A[u,v] (for undirected)
+    In-degree: d^in_u = Σᵥ A[v,u] (edges into u)
+    Out-degree: d^out_u = Σᵥ A[u,v] (edges out of u)
+
+    Handshaking Lemma: In any undirected graph, Σᵥ∈V dᵥ = 2|E|.
+    Proof: Each edge {u,v} contributes exactly 1 to dᵤ and exactly 1 to dᵥ.
+    So summing degrees counts each edge exactly twice. ∴ Σ dᵥ = 2|E|. □
+
+22. N(v)        : Neighbourhood of node v
+    dG (u, v )  : Distance between node u and node v
+
+23. Define the K-hop neighbourhood N_K(v). How does it connect to GNN depth?
+    N_K(v) = {u ∈ V : d_G(u,v) ≤ K}
+
+    where
+        d_G(u,v) is the length of the shortest path from u to v (= ∞ if no path exists).
+
+    GNN connection (from slides):
+    A K-layer GNN computes the represnttion of node v by aggregating information from v's K-hop neighbourhood N_K(v).
+    The depth of the GNN controls how far each node "sees" into the graph.
+
+24. What is graph isomorphism? Why does it matter for GNNs?
+    G₁ ≅ G₂ if there exists a bijection φ: V₁ → V₂ such that {u,v} ∈ E₁ ⟺ {φ(u), φ(v)} ∈ E₂.
+
+    Why it matters for GNNs: A maximally powerful GNN should:
+        Map isomorphic graphs → same representation
+        Map non-isomorphic graphs → different representations
+
+    The Weisfeiler–Lehman (WL) test provides an upper bound on the discriminative power of message-passing GNNs.
+
+25. Distinguish between a heterogeneous graph and a multiplex graph.
+    Multi-relational graph: Edges carry types (relations). An edge is a triple (u, τ, v) where τ ∈ ℛ.
+                            Each relation type has its own adjacency matrix A_τ.
+        i. Heterogeneous graph: Nodes also have types: V = V₁ ∪ V₂ ∪ ... ∪ Vₖ (disjoint).
+                             Certain edge types connect only specific node types.
+                             Example: Biomedical graph with node types {protein, drug, disease} and
+                                                            edge types {treats, interacts, causes}.
+        ii. Multiplex graph: Every node belongs to every layer. Each layer = one edge type (intra-layer edges).
+                         Plus inter-layer edges connecting the same node across layers.
+                         Example: Transportation network where layers = air, rail, road.
+
+26. What is the difference between a simple graph and a multigraph?
+    A simple graph has no self-loops and no parallel edges (at most one edge between any pair).
+    A multigraph may have multiple (parallel) edges connecting the same two vertices.
+    The multiplicity m of {u,v} is the number of edges between them. (Financial transaction graphs are multigraphs.)
+
+27. When is a graph bipartite? Give an equivalent characterisation.
+    G = (V,E) is bipartite if V can be partitioned into V₁ and V₂ such that every edge connects a vertex in V₁
+    to one in V₂.
+    Equivalently: Vertices can be 2-coloured (red/blue) so no two adjacent vertices share the same colour.
+                  A graph is not bipartite iff it contains an odd cycle.
+
+28. What are the two stages of the pre-GNN machine learning pipeline on graphs?
+    Stage 1: Extracting hand-engineered features from the graph (node-level statistics, graph-level summaries,
+             or pairwise overlap scores).
+    Stage 2: Feeding those features into a standard classifier such as logistic regression, SVM, random forest,
+             or gradient boosting.
+
+29. Why do we need centrality measures?
+    Small networks can be visualized, but large ones cannot. We need quantitative summaries to identify which nodes
+    are important (central, influential). There is no single correct notion of importance — each measure formalizes
+    a different intuition.
+
+30. Give the intuition behind each centrality measure in one line.
+        Measure                          Intuition
+        -------                  -----------------------------
+        Degree                  "How many friends do I have?"
+        Eigenvector             "Who I know matters, not just how many."
+        Katz                    Eigenvector + free baseline (works on DAGs)
+        PageRank                Katz + divide by out-degree
+        Closeness               "How quickly can I reach everyone?"Betweenness"How often does information
+                                flow through me?"
+
+31. Tow flavours of node level features.
+    At high level, node-level features are divided into two camps:
+    a. Importance based feautres: How influential/central is the node
+        i. Node degree
+        ii. Eigenvector centrality
+        iii. Katz centrality
+        iv. Page Rank
+        v. Closeness centrality
+        vi. Betweenness centraality
+    b. Structure based features: What does the local neighborhood looks like?
+        i. Node degree
+        ii. Clustering coefficient
+        iii. Graphlet(degree) count vector
+
+32. On the bowtie graph (two triangles glued at vertex 3), compute the degree centrality of all nodes.
+    N(1)={2,3}, N(2)={1,3}, N(3)={1,2,4,5}, N(4)={3,5}, N(5)={3,4}
+    d₁=2, d₂=2, d₃=4, d₄=2, d₅=2.
+    Node 3 is most central; the four leaves are tied at degree 2.
+
+
+33. Eigenvector centrality
+    The centrality vector is the eigenvector corresponding to the largest eigenvalue (the principal eigenvalue).
+
+    Degree centrality treats all neighbors equally, even unimportant ones. Eigenvector centrality captures the
+    recursive idea that a node is important if its neighbors are important. Formally, the centrality vector x
+    satisfies Ax = κx, where x is the principal eigenvector of the adjacency matrix A.
+
+    Graph: 1 --- 2 --- 3
+
+    Vertices:
+    V = {1, 2, 3}
+
+    Edges:
+    E = {{1,2}, {2,3}}
+
+    Step 1: Adjacency Matrix
+
+                | 0  1  0 |
+            A = | 1  0  1 |
+                | 0  1  0 |
+
+    --------------------------------------------------
+    
+    Step 2: Eigenvector Centrality Equation
+
+        A x = λ x
+
+        where:
+            x = (x1, x2, x3)^T
+
+        We use the eigenvector corresponding to the largest eigenvalue.
+
+    --------------------------------------------------
+
+    Step 3: Find Eigenvalues
+
+        Solve:
+            det(A - λI) = 0
+            Characteristic polynomial: det(A - λI) = -λ(λ² - 2)
+
+            Set equal to zero: -λ(λ² - 2) = 0
+
+            Therefore:
+                λ = 0
+                λ = +√2
+                λ = -√2
+
+            Largest (principal) eigenvalue: λ1 = √2
+
+    --------------------------------------------------
+
+    Step 4: Solve Ax = √2 x
+
+        Let:
+            x = (x1, x2, x3)^T
+
+            Then:
+                        | x2      |
+                A x =   | x1 + x3 |
+                        | x2      |
+
+                Set equal to √2 x:
+
+                | x2      |   | √2 x1 |
+                | x1+x3   | = | √2 x2 |
+                | x2      |   | √2 x3 |
+
+                This gives:
+                    (1) x2 = √2 x1
+                    (2) x1 + x3 = √2 x2
+                    (3) x2 = √2 x3
+
+    --------------------------------------------------
+
+    Step 5: Find Relationships
+
+        From (1) and (3):  √2 x1 = √2 x3
+
+        Therefore:  x1 = x3
+
+        Let: x1 = x3 = a
+
+        Using (1): x2 = √2 a
+
+        Hence:  x = a(1, √2, 1)^T
+
+    --------------------------------------------------
+
+    Step 6: Normalize the Eigenvector
+
+        Length of (1, √2, 1):
+
+        ||x|| = √(1² + (√2)² + 1²)
+
+             = √(1 + 2 + 1)
+
+             = √4
+
+             = 2
+
+        Divide by 2:
+
+        x = (1/2)(1, √2, 1)^T
+
+    --------------------------------------------------
+
+    Final Eigenvector Centrality Scores
+
+        x = (0.500, 0.707, 0.500)^T
+
+        Node 1 : 0.500
+        Node 2 : 0.707
+        Node 3 : 0.500
+
+    --------------------------------------------------
+
+    Interpretation:
+
+    - Node 2 has the highest centrality because it is connected to both nodes.
+    - Nodes 1 and 3 are symmetric, so they receive equal centrality scores.
+    - Therefore:
+
+    Centrality(2) > Centrality(1) = Centrality(3)
+
+34. Why does the Perron–Frobenius theorem guarantee a unique, meaningful eigenvector centrality for connected graphs?
+    For a connected graph, A is irreducible. Perron–Frobenius guarantees that the eigenvalue of largest modulus is
+    positive (the spectral radius ρ(A)), and its corresponding eigenvector is the only eigenvector with all
+    non-negative entries. This makes it canonical — no ambiguity about which eigenvector to pick — and preserves
+    recursive semantics.
+
+35. Why does eigenvector centrality fail on DAGs? Give an example.
+    On a DAG, source nodes (no in-neighbors) get score 0. By induction, this propagates — only sinks survive with
+    nonzero scores. On DAGs with multiple sinks, the null space becomes multi-dimensional and Perron–Frobenius
+    uniqueness breaks down.
+
+    Example:
+    Citation networks are DAGs (x cites y ⟹ x published after y). Most nodes get score 0, making the measure useless.
+
+36. Define Katz centrality and explain what it counts.
+    On a directed graph, eigenvector centrality says that node i is important if its in-neighbors are important:
+
+    xi = Σ xj
+        j:j→i
+
+    Equivalently, xi = Σ Aji xj
+
+    or in matrix form: Aᵀ x = λx
+
+    The principal eigenvector of Aᵀ gives the centrality scores.
+    
+    x = (I↗ ϱ A↑)↗1 1.
+
+    Issue:
+        If a node u has no in-neighbors, then xu = 0. Similarly, if u → v is v's only incoming edge, then xv = 0.
+        By induction, on a Directed Acyclic Graph (DAG), this recursion drives most scores to zero. Only sinks
+        survive, and they correspond to eigenvalue 0 rather than the positive principal eigenvalue that the
+        Perron–Frobenius theorem would otherwise guarantee.
+
+    As a result, the eigenvector-centrality framework becomes degenerate on DAGs.
+
+37. Katz Centrality
+
+    Definition.
+        Let G be a directed graph with adjacency matrix A. The Katz centrality scores of the nodes are
+
+        x = (I − αAᵀ)^(-1) 1
+
+    What does this mean?
+
+        Use the Neumann series: (I − αAᵀ)^(-1) = Σ α^k (Aᵀ)^k
+                                                k=0→∞
+
+        (valid for |α| < 1/ρ(A); note that ρ(Aᵀ) = ρ(A))
+
+    Reading off:
+        xi = Σ α^k ((Aᵀ)^k 1)i
+             k=0→∞
+
+           = Σ α^k · #{walks of length k ending at i}
+             k=0→∞
+
+    Under our convention, ((Aᵀ)^k)ij counts length-k walks
+    from j to i, so (Aᵀ)^k 1 at position i counts walks
+    ending at i.
+
+    Interpretation:
+    A node is important if many walks of evry lngth end at it, with shorter walks weighted more heavily (factor α^k).
+
+    Hyperparameter α: α must be chosen below 1/ρ(A) for convergence.
+
+
+38. Example: Katz Centrality on a 3-Node DAG (1/3)
+
+    Three vertices with edges: 1 → 2, 1 → 3, 2 → 3
+
+    With Aij = 1 iff i → j (CLRS convention):
+
+            [0 1 1]
+    A   =   [0 0 1]
+            [0 0 0]
+
+            [0 0 0]
+    Aᵀ  =   [1 0 0]
+            [1 1 0]
+
+    A is nilpotent (A³ = 0), with spectrum {0, 0, 0}.
+
+    Eigenvector centrality is degenerate, not undefined.
+
+    The principal eigenvalue is 0, and solving
+
+    Aᵀx = 0
+
+    gives x = (0, 0, 1)ᵀ
+
+    Only the sink (node 3) receives a nonzero score.
+
+    For DAGs with multiple sinks, the null space becomes multi-dimensional and Perron–Frobenius uniqueness breaks.
+    There is no longer a canonical eigenvector to call "the" centrality.
+
+    Katz to the rescue.
+    
+    Choose α = 1/2 (any α > 0 works, since Aᵀ is nilpotent).
+
+    The Neumann series is
+
+    (I − αAᵀ)^(-1) = Σ α^k (Aᵀ)^k
+                     k=0→∞
+
+    Since (Aᵀ)^k = 0 for k ≥ 3, the series collapses to a finite sum.
+
+    With α = 1/2 and (Aᵀ)^k = 0 for k ≥ 3,
+
+    (I − 1/2 Aᵀ)^(-1) = I + 1/2 Aᵀ + 1/4 (Aᵀ)^2
+
+    Compute the squared term:
+
+             [0 0 0]
+    (Aᵀ)^2 = [0 0 0]
+             [1 0 0]
+
+    Add the three weighted matrices:
+
+          [1 0 0]
+    I   = [0 1 0]
+          [0 0 1]
+
+                [0   0   0]
+    1/2 Aᵀ =    [1/2 0   0]
+                [1/2 1/2 0]
+
+                    [0   0 0]
+    1/4(Aᵀ)^2 =     [0   0 0]
+                    [1/4 0 0]
+
+    Sum:
+
+    [1   0   0]
+    [1/2 1   0]
+    [3/4 1/2 1]
+
+    Multiply by the all-ones vector:
+
+    x = (I − 1/2 Aᵀ)^(-1) 1 = (1, 3/2, 9/4)ᵀ
+
+    The score vector  x = (1, 3/2, 9/4)ᵀ makes structural sense.
+
+    Walk-counting interpretation: Each xi counts walks ending at node i, weighted by
+
+    α^k = (1/2)^k
+
+        Node 1:
+            - No incoming walks.
+            - Only the length-0 walk.
+
+            x1 = 1
+
+        Node 2:
+            - One length-0 walk.
+            - One length-1 walk: 1 → 2
+
+            x2 = 1 + 1/2
+               = 3/2
+
+        Node 3:
+            - One length-0 walk.
+            - Two length-1 walks:
+                1 → 3
+                2 → 3
+            - One length-2 walk:
+                1 → 2 → 3
+
+                x3 = 1 + 1 + 1/4
+                   = 9/4
+
+    Thus, x = (1, 3/2, 9/4)ᵀ
+
+39. What is the key problem with Katz centrality that PageRank fixes? How does PageRank fix it?
+    In Katz centrality, a highly important node (for example, amazon.com) passes its full weight to all of its
+    out-neighbors. As a result, pages can receive inflated scores simply because they are linked from a very
+    popular hub.
+
+    PageRank fixes this by dividing the score passed to each out-neighbor by the source node's out-degree
+    d_j^out. This conserves the total importance (mass) being distributed.
+
+    The PageRank equation is:
+
+                    x_j
+    x_i = α Σ ---------------- + (1 − α)
+           j:j→i   d_j^out
+
+        where:
+            - α is the damping factor (typically α ≈ 0.85),
+            - d_j^out is the out-degree of node j.
+
+    Interpretation:
+        Instead of giving its entire score to every outgoing neighbor, a node splits its score equally among all
+    outgoing links. This prevents high-degree hubs from artificially boosting the scores of all pages they point to.
+
+    Equivalently, PageRank can be viewed as the stationary distribution of a random walk with teleportation.
+    At each step:
+        1. With probability α, follow an outgoing link.
+        2. With probability (1 − α), teleport to a random page.
+
+    This normalization and teleportation make PageRank more robust and meaningful than Katz centrality on large web graphs.
+
+40. Why is teleportation necessary in PageRank?
+    Without teleportation, the random walk gets stuck in dangling nodes or sink components. Teleportation makes the Markov
+    chain irreducible and aperiodic, guaranteeing a unique stationary distribution exists.
+
+41. Q14. Define closeness centrality and compute it for P₄.
+
+                   n
+    Ci = ------------------
+          Σ(j=1 to n) dij
+
+        where dij is the shortest-path distance between nodes i and j.
+
+    For the path graph P₄ (nodes 1–2–3–4):
+        Node    Σdij    Ci
+        ------------------------
+        1         6     4/6 = 2/3 ≈ 0.667
+        2         4     4/4 = 1
+        3         4     4/4 = 1
+        4         6     4/6 = 2/3 ≈ 0.667
+
+    Distance calculations:
+    Node 1:
+        d(1,2)=1, d(1,3)=2, d(1,4)=3
+        Σd1j = 1+2+3 = 6
+        C1 = 4/6 = 2/3 ≈ 0.667
+
+    Node 2:
+        d(2,1)=1, d(2,3)=1, d(2,4)=2
+        Σd2j = 1+1+2 = 4
+        C2 = 4/4 = 1
+
+    Node 3:
+        d(3,1)=2, d(3,2)=1, d(3,4)=1
+        Σd3j = 2+1+1 = 4
+        C3 = 4/4 = 1
+
+    Node 4:
+        d(4,1)=3, d(4,2)=2, d(4,3)=1
+        Σd4j = 3+2+1 = 6
+        C4 = 4/6 = 2/3 ≈ 0.667
+
+    Conclusion: The interior nodes (2 and 3) have the highest closeness centrality. They are the most central because
+                every other node can be reached from them in at most 2 hops, whereas the end nodes (1 and 4) are farther
+                from the rest of the graph.
+
+42. Define betweenness centrality and compute it for the star K₁,₃.
+
+        (2)        (3)
+           \       /
+            \     /
+             \   /
+              (1)
+               |
+               |
+               |
+              (4)
+
+          n   n
+    xi = Σ   Σ  nist
+         s=1 t=1
+
+    where
+        nist = 1  if node i lies on the shortest path from s to t,
+               0  otherwise.
+
+    For the star graph K₁,₃:
+        Center node: 1
+        Leaf nodes: 2, 3, 4
+
+    Betweenness centralities:
+
+    x1 = 13
+        Reason:
+        - Node 1 is an endpoint in 7 ordered source-target pairs.
+        - Node 1 is also the interior node on all shortest paths
+          between distinct leaves.
+        - There are 3 × 2 = 6 ordered leaf-to-leaf pairs:
+            2 → 3, 2 → 4,
+            3 → 2, 3 → 4,
+            4 → 2, 4 → 3
+          and every such path passes through node 1.
+
+        Therefore, x1 = 7 + 6 = 13 
+
+    x2 = x3 = x4 = 7
+        Reason:
+        - Each leaf is an endpoint in 7 ordered source-target pairs.
+        - A leaf can never be an interior node on a shortest path
+          between two other nodes.
+
+        Hence, x2 = x3 = x4 = 7
+
+    Final result:
+
+        Node    Betweenness Centrality
+        --------------------------------
+        1       13
+        2       7
+        3       7
+        4       7
+
+    Conclusion:
+    The center node (1) has the highest betweenness centrality because all communication between any two leaves must
+    pass through it. The leaves have equal and lower centrality since they never act as bridges between other node pairs. 
+
+43. Define the global clustering coefficient. What does C = 0 and C = 1 mean?
+    The global clustering coefficient is defined as:
+
+    C = (# closed 2-paths) / (# 2-paths)
+      = (3 × # triangles) / (# connected triples)
+
+        where:
+            - A closed 2-path is a 2-path whose endpoints are connected, forming a triangle.
+            - A connected triple is a set of three nodes connected by at least two edges.
+
+    Properties:
+        - C ∈ [0, 1]
+
+    Interpretation:
+        - C = 0 : No triangles exist in the network.
+        - C = 1 : Every connected component is a clique (every possible triangle exists).
+
+    Empirical observation:
+        - Real social networks typically have C ≈ 0.2.
+        - Random graphs of the same size typically have C ≈ 10⁻⁴.
+
+44. Example: Global Clustering Coefficient on a Triangle-with-Tail
+
+          (1)
+           | \
+           |  (3) ---- (4) ---- (5)
+           | /
+          (2)
+
+        Nodes: 1, 2, 3, 4, 5
+        Edges: {1, 2}, {1, 3}, {2, 3}, {3, 4}, {4, 5}
+        Degrees: d1 = 2, d2 = 2, d3 = 3, d4 = 2, d5 = 1
+
+        Triangles (T):
+        -----------------
+        A triangle consists of 3 mutually adjacent nodes.
+        Only {1, 2, 3} forms a triangle.
+        Total Triangles (T) = 1
+
+        Total Ordered 2-Paths:
+        -------------------------
+        Formula for ordered 2-paths centered at node v: dv * (dv - 1)
+
+        Sum over all nodes v:
+        = d1(d1-1) + d2(d2-1) + d3(d3-1) + d4(d4-1) + d5(d5-1)
+        = 2(1) + 2(1) + 3(2) + 2(1) + 1(0)
+        = 2 + 2 + 6 + 2 + 0
+        = 12
+
+        Closed (Ordered) 2-Paths:
+        ----------------------------
+        Each triangle {a, b, c} yields 6 closed 2-paths: 
+        abc, acb, bac, bca, cab, cba
+
+        Total closed 2-paths = 6 * T
+                             = 6 * 1 
+                             = 6
+
+        Global Clustering Coefficient (C):
+        -------------------------------------
+        C = (Closed Ordered 2-Paths) / (Total Ordered 2-Paths)
+        C = 6 / 12
+        C = 1 / 2
+
+
+        Sanity Check via Connected Triples:
+        --------------------------------------
+        Number of connected triples (K_1,2 subgraphs) = 6
+        Alternative formula: C = (3 * T) / (Number of connected triples)
+        C = (3 * 1) / 6 = 3 / 6 = 1 / 2
+
+45. Example: Local Clustering Coefficient on the Bowtie Graph
+
+        Graph Visualization:
+        --------------------
+          (1)        (5)
+           | \      / |
+           |  (3) --   
+           | /      \ |
+          (2)        (4)
+
+
+        Concept Formula:
+        ----------------
+        Cu = (Actual edges between neighbors of u) / (Maximum possible edges between neighbors)
+        Maximum possible edges = du * (du - 1) / 2  -->  Written as C(du, 2)
+
+
+        1. Analysis of Non-Hub Nodes (Nodes 1, 2, 4, 5):
+           ----------------------------------------------
+            - Degree (du) = 2
+            - Max possible edges between neighbors = C(2, 2) = 1
+
+            * Node 1: Neighbors N(1) = {2, 3}. Edge {2, 3} exists. 
+                      Actual = 1.  ==> C1 = 1/1 = 1
+            * Node 2: Neighbors N(2) = {1, 3}. Edge {1, 3} exists. 
+                      Actual = 1.  ==> C2 = 1/1 = 1
+            * Node 4: Neighbors N(4) = {3, 5}. Edge {3, 5} exists. 
+                      Actual = 1.  ==> C4 = 1/1 = 1
+            * Node 5: Neighbors N(5) = {3, 4}. Edge {3, 4} exists. 
+                      Actual = 1.  ==> C5 = 1/1 = 1
+
+        Takeaway: Every non-hub node has a perfect clustering coefficient of 1 
+        because their neighbors are completely connected to each other.
+
+
+        2. Analysis of the Hub Node (Node 3):
+            -------------------------------------
+            - Degree (d3) = 4
+            - Neighbors N(3) = {1, 2, 4, 5}
+            - Max possible edges between 4 neighbors = C(4, 2) = 6 
+              (The 6 pairs are: {1,2}, {4,5}, {1,4}, {1,5}, {2,4}, {2,5})
+
+            - Actual edges existing between these neighbors = 2
+              (Only {1, 2} and {4, 5} exist in the graph. The rest are empty gaps.)
+
+            - Calculate Coefficient:
+              C3 = 2 / 6 = 1 / 3
+
+
+        3. Core Structural Insight (The Punchline):
+           -----------------------------------------
+            - By DEGREE: Node 3 is the highest (Degree = 4, others = 2). 
+              It looks like the center of attention.
+            - By CLUSTERING: Node 3 is the lowest (C3 = 1/3, others = 1).
+
+        Conclusion: The clustering coefficient correctly identifies Node 3 
+        not as a central member of a single community, but as a "structural bridge" 
+        mediating between two separate communities.
+
+46. What are the 4 rooted graphlets on ≤3 vertices? Why does P₃ have two rooted graphlets but K₂ and K₃ each have only one?
+    The four rooted graphlets are:
+
+    γ₀: K₂ (edge) — Number of edges touching the node (this is just the standard node degree).
+    γ₁: P₃ endpoint — Number of induced 3-node paths (P₃) where the node is an end-point (e.g., u - v - w).
+    γ₂: P₃ middle — Number of induced 3-node paths (P₃) where the node is the center/hub (e.g., v - u - w).
+    γ₃: K₃ (triangle) — Number of triangles (C₃) the node is part of.
+
+47. Example: Graphlet Degree Vector (GDV) on the Bowtie Graph
+
+    Graph Visualization:
+    --------------------
+      (1)       (4)
+       | \     / |
+       |  (3) --   
+       | /     \ |
+      (2)       (5)
+
+    Orbit Definitions (for 2-node and 3-node graphlets):
+    ---------------------------------------------------
+    gamma_0 = Node Degree (Number of touching edges)
+    gamma_1 = Number of open 3-node paths where node is an END-POINT
+    gamma_2 = Number of open 3-node paths where node is the CENTER/HUB
+    gamma_3 = Number of triangles containing the node
+
+
+    1. Structural Symmetry
+    -----------------------
+    - Node 3 is structurally unique (fixed).
+    - Nodes 1, 2, 4, and 5 are completely symmetrical.
+    - Therefore: Vector gamma(1) = gamma(2) = gamma(4) = gamma(5)
+
+
+    2. Vector Computations
+    -----------------------
+    * For Node 3 (The Hub):
+      - gamma_0 = 4  (connected to 1, 2, 4, 5)
+      - gamma_1 = 0  (never sits at the tail end of an open 3-node path)
+      - gamma_2 = 4  (center of open paths: 1-3-4, 1-3-5, 2-3-4, 2-3-5)
+      - gamma_3 = 2  (part of triangles {1,2,3} and {3,4,5})
+      ==> gamma(3) = (4, 0, 4, 2)
+
+    * For Node 1, 2, 4, 5:
+      - gamma_0 = 2  (connected to 2, 3)
+      - gamma_1 = 2  (endpoint of open paths: 1-3-4 and 1-3-5)
+      - gamma_2 = 0  (neighbors 2 and 3 are connected, forms a triangle, not open path)
+      - gamma_3 = 1  (part of triangle {1,2,3})
+      ==> gamma(1) = (2, 2, 0, 1)
+
+
+    3. GDV Table Matrix
+    --------------------
+    
+    c(g0, 2) = g0*(g0-1)/2
+
+    node u | gamma_0(u) | gamma_1(u) | gamma_2(u) | gamma_3(u) | cu = g3 / c(g0, 2)
+    -------------------------------------------------------------------------------
+      1    |     2      |     2      |     0      |     1      |    1 / 1  = 1
+      2    |     2      |     2      |     0      |     1      |    1 / 1  = 1
+      3    |     4      |     0      |     4      |     2      |    2 / 6  = 1/3
+      4    |     2      |     2      |     0      |     1      |    1 / 1  = 1
+      5    |     2      |     2      |     0      |     1      |    1 / 1  = 1
+
+
+    4. Summary Observations
+    -----------------------
+    - GDV naturally groups nodes into structural symmetry orbits purely from local counts.
+    - Node 3 is uniquely flagged as an "articulation vertex" (bridge) because gamma_1=0 
+      and gamma_2 is highly prominent.
+    - GDV strictly refines the standard local clustering coefficient (Cu) by preserving
+      the structural configuration details that Cu throws away.
+    ===================================================================
+
+
+
+48. Why does GDV beat the 1-WL ceiling? Give a concrete example.
+    Standard MPNNs are bounded by 1-WL, and 1-WL-bounded GNNs provably cannot count triangles.
+    Example: C₆ vs C₃⊔C₃ — both are 2-regular with 6 vertices and 6 edges, so 1-WL assigns identical color histograms
+             at every iteration. But the triangle count γ₃(u) separates them instantly: every vertex of C₃⊔C₃ lies in 1
+             triangle; every vertex of C₆ lies in 0.
+    
+
+49. 1-Weisfeiler-Lehman (1-WL) Graph Isomorphism Test
+    The 1-WL test is an algorithm used to determine if two graphs are structurally identical (isomorphic). It works
+    by iteratively updating a node's label based on its current label and the labels of its neighbors, then compressing
+    this information into a unique hash value. If at any point the collection (multiset) of labels in graph G does not
+    match the collection of labels in graph G', the algorithm stops and correctly states that the graphs are not isomorphic.
+
+        ===================================================================
+        Example: 1-WL Graph Isomorphism Test (C4 vs. K3 + pendant)
+        ===================================================================
+
+        Graph Visualizations:
+        --------------------
+           Graph G (C4)              Graph G' (K3 + pendant)
+             v1 --- v2                          u2
+             |      |                         /    \
+             |      |                  u4 --- u1 -- u3
+             v4 --- v3
+
+
+        1. Initial State (Iteration 0):
+        -------------------------------
+        - Graph G degrees:  d(v1)=2, d(v2)=2, d(v3)=2, d(v4)=2
+        - Graph G' degrees: d(u1)=3, d(u2)=2, d(u3)=2, d(u4)=1
+
+        Degree Multiset Comparison:
+        {{2, 2, 2, 2}}  !=  {{3, 2, 2, 1}}
+
+        Conclusion at Iteration 0:
+            The graphs have different degree sequences, meaning they are immediately proven to be "Not Isomorphic".
+
+
+        2. Running Iteration 1 (Label Refinement Machine):
+        --------------------------------------------------
+        Formula: s1(v) = [Current Label] + [Sorted Neighbor Labels]
+
+        * Graph G:
+          - v1: label=2, neighbors={2,2} -> string=222 -> Hash label = B
+          - v2: label=2, neighbors={2,2} -> string=222 -> Hash label = B
+          - v3: label=2, neighbors={2,2} -> string=222 -> Hash label = B
+          - v4: label=2, neighbors={2,2} -> string=222 -> Hash label = B
+
+        * Graph G':
+          - u1: label=3, neighbors={2,2,1} -> string=3122 -> Hash label = D
+          - u2: label=2, neighbors={3,2}   -> string=223  -> Hash label = C
+          - u3: label=2, neighbors={3,2}   -> string=223  -> Hash label = C
+          - u4: label=1, neighbors={3}     -> string=13   -> Hash label = A
+
+
+        3. Iteration-1 GDV/Label Table Summary:
+        ---------------------------------------
+        Node u | l0(u) | M1(u) (Neighbors) | s1(u) (String) | l1(u) (Hash)
+        ------------------------------------------------------------------
+         v1    |   2   |      {2, 2}       |      222       |      B
+         v2    |   2   |      {2, 2}       |      222       |      B
+         v3    |   2   |      {2, 2}       |      222       |      B
+         v4    |   2   |      {2, 2}       |      222       |      B
+        ------------------------------------------------------------------
+         u1    |   3   |     {2, 2, 1}     |     3122       |      D
+         u2    |   2   |      {3, 2}       |      223       |      C
+         u3    |   2   |      {3, 2}       |      223       |      C
+         u4    |   1   |       {3}         |       13       |      A
+
+
+        4. Final Multiset Check:
+        ------------------------
+        Graph G  Final Labels: {{B, B, B, B}}
+        Graph G' Final Labels: {{D, C, C, A}}
+
+        Since {{B, B, B, B}} != {{D, C, C, A}}, the algorithm certifies that the two graphs are NOT ISOMORPHIC.
+
+        Takeaway: 1-WL refines local node descriptors into structural signatures, making structural mismatches obvious.
+
+50. Example: 1-WL Graph Isomorphism Test (Same Degree Sequences)
+
+        Graph Visualizations:
+        --------------------
+           Graph G (triangle + path)      Graph G' (4-cycle + pendant)
+                 v1                             u1 --- u2
+                /  \                            |      |
+               /    \                           |      |
+              v2 --- v3 --- v4 --- v5           u4 --- u3 --- u5
+
+
+        1. Initial State (Iteration 0):
+        -------------------------------
+        - Graph G degrees:  d(v5)=1, d(v1)=2, d(v2)=2, d(v4)=2, d(v3)=3
+        - Graph G' degrees: d(u5)=1, d(u1)=2, d(u2)=2, d(u4)=2, d(u3)=3
+
+        Degree Multiset Comparison:
+        {{1, 2, 2, 2, 3}}  ==  {{1, 2, 2, 2, 3}}
+
+        Conclusion at Iteration 0:
+        The degree sequences match perfectly. Iteration 0 yields no conclusion; label refinement is required.
+
+
+        2. Running Iteration 1 (Neighborhood Aggregation):
+        --------------------------------------------------
+        Formula: s1(v) = [Current Label] + [Sorted Neighbor Labels]
+
+        Hash mapping rules provided:
+        f(12)=A, f(13)=B, f(213)=C, f(222)=D, f(223)=E, f(3122)=F, f(3222)=G
+
+        * Graph G:
+          - v1: label=2, neighbors={2,3}   -> string=223  -> Hash label = E
+          - v2: label=2, neighbors={2,3}   -> string=223  -> Hash label = E
+          - v3: label=3, neighbors={2,2,2} -> string=3222 -> Hash label = G
+          - v4: label=2, neighbors={1,3}   -> string=213  -> Hash label = C
+          - v5: label=1, neighbors={2}     -> string=12   -> Hash label = A
+
+        * Graph G':
+          - u1: label=2, neighbors={2,2}   -> string=222  -> Hash label = D
+          - u2: label=2, neighbors={2,3}   -> string=223  -> Hash label = E
+          - u3: label=3, neighbors={1,2,2} -> string=3122 -> Hash label = F
+          - u4: label=2, neighbors={2,3}   -> string=223  -> Hash label = E
+          - u5: label=1, neighbors={3}     -> string=13   -> Hash label = B
+
+
+        3. Iteration-1 GDV/Label Table Summary:
+        ---------------------------------------
+        Node u | l0(u) | M1(u) (Neighbors) | s1(u) (String) | l1(u) (Hash)
+        ------------------------------------------------------------------
+         v1    |   2   |      {2, 3}       |      223       |      E
+         v2    |   2   |      {2, 3}       |      223       |      E
+         v3    |   3   |    {2, 2, 2}      |     3222       |      G
+         v4    |   2   |      {1, 3}       |      213       |      C
+         v5    |   1   |       {2}         |       12       |      A
+        ------------------------------------------------------------------
+         u1    |   2   |      {2, 2}       |      222       |      D
+         u2    |   2   |      {2, 3}       |      223       |      E
+         u3    |   3   |    {1, 2, 2}      |     3122       |      F
+         u4    |   2   |      {2, 3}       |      223       |      E
+         u5    |   1   |       {3}         |       13       |      B
+
+
+        4. Final Multiset Check:
+        ------------------------
+        Graph G  Final Labels: {{A, C, E, E, G}}
+        Graph G' Final Labels: {{B, D, E, E, F}}
+
+        Since {{A, C, E, E, G}} != {{B, D, E, E, F}}, the algorithm certifies that the two graphs are NOT ISOMORPHIC.
+
+        Core Insight: 1-WL detects that in G, the degree-3 vertex is connected solely to degree-2 vertices (3222).
+        In G', the degree-3 vertex hooks directly into a leaf node of degree-1 (3122).
+        This structural mismatch is captured immediately in Iteration 1.
+
+51. Example: Common-Neighbors Link Prediction on a 5-Person Network
+
+        Graph Visualization:
+        --------------------
+              (A)
+             /   \
+           (B)---(C)
+             \   /
+              (D)---(E)
+
+        People Mapping:
+        A = Alice, B = Bob, C = Carol, D = Dave, E = Eve
+
+        Neighbor Sets (Friend Lists):
+        -----------------------------
+        N(A) = {B, C}
+        N(B) = {A, C, D}
+        N(C) = {A, B, D}
+        N(D) = {B, C, E}
+        N(E) = {D}
+
+        The Recommendation Rule:
+        ------------------------
+        Recommend an edge between {u, v} if their Common Neighbors (Scn) >= 2
+        Formula: Scn = | N(u) INTERSECT N(v) |
+
+
+        Evaluation of Non-Edges (Pairs who aren't friends yet):
+        -------------------------------------------------------
+        Total pairs possible = C(5,2) = 10
+        Existing edges = 6
+        Remaining pairs to evaluate = 4
+
+
+        1. Pair {A, D}:
+           - N(A) INTERSECT N(D) = {B, C}
+           - Score (Scn) = 2
+           - Since 2 >= 2  ==>  RECOMMENDED? YES
+
+        2. Pair {A, E}:
+           - N(A) INTERSECT N(E) = Empty Set (O)
+           - Score (Scn) = 0
+           - Since 0 < 2   ==>  RECOMMENDED? NO
+
+        3. Pair {B, E}:
+           - N(B) INTERSECT N(E) = {D}
+           - Score (Scn) = 1
+           - Since 1 < 2   ==>  RECOMMENDED? NO
+
+        4. Pair {C, E}:
+           - N(C) INTERSECT N(E) = {D}
+           - Score (Scn) = 1
+           - Since 1 < 2   ==>  RECOMMENDED? NO
+
+
+        Summary Table Matrix:
+        ---------------------
+        Non-edge {u, v} | Mutual Friends (N(u) ^ N(v)) | Scn | Recommended?
+        --------------------------------------------------------------------
+            {A, D}      |            {B, C}            |  2  |     YES
+            {A, E}      |              O               |  0  |     no
+            {B, E}      |             {D}              |  1  |     no
+            {C, E}      |             {D}              |  1  |     no
+
+
+        Conclusion:
+        -----------
+        The system recommends exactly one future friendship: {A, D}. 
+        This is highly intuitive: Alice is tightly connected to both 
+        Bob and Carol, who are both friends with Dave.
+
+52. Example: Five Local Overlap Measures on the Bowtie Graph
+
+        Graph Visualization:
+        --------------------
+          (1)         (5)
+           | \       / |
+           |  (3) --   
+           | /       \ |
+          (2)         (4)
+
+
+        Target Evaluation:
+        ------------------
+        Pair to score: Non-adjacent pair {1, 4}
+
+        Base Neighborhood Data:
+        - N(1) = {2, 3}  --> Degree d1 = 2
+        - N(4) = {3, 5}  --> Degree d4 = 2
+
+        Overlaps:
+        - Intersection: N(1) ^ N(4) = {3}    --> Size = 1
+        - Union:        N(1) v N(4) = {2,3,5}--> Size = 3
+
+
+        Calculations:
+        -------------
+        1. Common Neighbors (Scn): Simply counts the number of shared neighbors.
+           Formula: |N(1) ^ N(4)|
+           Scn[1, 4] = 1
+
+        2. Jaccard Coefficient (SJaccard): Measures the ratio of shared neighbors to the total unique neighbors combined.
+           Formula: |N(1) ^ N(4)| / |N(1) v N(4)|
+           SJaccard[1, 4] = 1 / 3
+
+        3. Sorensen-Dice Coefficient (SSorensen): Compares the shared neighbors against the sum of the individual degrees.
+           Formula: (2 * |N(1) ^ N(4)|) / (d1 + d4)
+           SSorensen[1, 4] = (2 * 1) / (2 + 2) = 2 / 4 = 1 / 2
+
+        4. Salton Index / Cosine Similarity (SSalton): Normalizes the common neighbors by the geometric mean of the node degrees.
+           Formula: |N(1) ^ N(4)| / sqrt(d1 * d4)
+           SSalton[1, 4] = 1 / sqrt(2 * 2) = 1 / 2
+
+        5. Resource Allocation Index (SRA):
+           Formula: Sum over shared neighbors of (1 / degree(shared_node))
+           Shared node is 3, and d3 = 4.
+           SRA[1, 4] = 1 / d3 = 1 / 4
+
+        6. Adamic-Adar Index (SAA):
+           Formula: Sum over shared neighbors of (1 / log(degree(shared_node)))
+           SAA = 1 / log(4) approx 0.721
+        ===================================================================
+
+
+53. Why does deeper WL generally give lower similarity between non-isomorphic graphs?
+    At depth 0, the kernel only compares degree distributions. At depth K it compares multisets of K-hop rooted subtrees —
+    a strictly richer description. Two graphs that appear identical at low depths can become distinguishable at higher depths
+    (provided 1-WL can distinguish them at all). Going from depth 1 to depth 2 for P₅ vs P₃ drops the cosine from ≈0.74 to ≈0.51.
+
+54. What is the forward connection between the WL kernel and GNNs?
+    The WL iteration — aggregate neighbor labels, hash to a new label — is structurally identical to a message-passing GNN layer.
+    Replacing the injective hash with a differentiable neural network gives the GIN architecture (Xu et al. 2019), which is exactly 
+    as expressive as 1-WL. The WL kernel is therefore the non-parametric ancestor of the MPNN.
+
+55. What is the "celebrity problem" in common neighbors, and how do RA and AA fix it?
+    Two pairs both sharing 2 mutual friends get the same SCN score, even if one shared friend is a celebrity with 10⁶ connections
+    (where overlap is nearly random) and the other is an obscure person (where overlap is highly informative).
+    RA weights each common neighbor w by 1/dw — linear suppression. A hub with dw=1000 contributes only 0.001.
+    AA weights by 1/log(dw) — gentler, logarithmic suppression. The same hub contributes ≈0.145.
+    Both give more credit to rare, low-degree common neighbors.
+
+56. What is the fundamental limitation of all local overlap measures?
+    They can only see common neighbors (1-hop overlap). Two pairs with SCN=0 (no common neighbors) may be at very different graph
+    distances — one reachable through a length-3 path, another not at all — but local measures cannot distinguish them.
+    This motivates global overlap measures (Katz index, Leicht–Holme–Newman, personalized PageRank) that aggregate over paths
+    of every length using (I-κM)⁻¹ expressions.
+
+57. Why does the GDV of node 3 in the bowtie have γ₁=0?
+    γ₁ counts induced P₃ subgraphs where node 3 is an endpoint. For 3 to be a P₃ endpoint, it needs a neighbor u, and u must
+    have a neighbor outside {3}∪N(3). But N(3)={1,2,4,5} = V{3}, so no vertex exists outside 3's closed neighborhood. Hence γ₁(3)=0.
+
+58. State the web-spam detection result of Becchetti et al. and three lessons learned.
+    Using 163 link-based features (degree, PageRank, neighborhood counts) fed into a C4.5 decision tree with bagging, 
+    they achieved F₁=0.871 on UK-2002 and 0.631 on UK-2006 — comparable to the best content-based classifiers.
+
+    Three lessons:
+    * Hand-crafted node features carry serious signal at scale
+    * Different feature families (degree, centrality, distance-graded counts) are non-redundant — they combine multiplicatively
+    * These features encode structural hypotheses that GNNs later learn (Truncated PageRank is a hand-coded message-passing scheme)
+
+
+
+59. THREE STANDARD TASKS ON GRAPH DATA:
+      1. Node Classification  -> Handled by graph kernels
+      2. Relation Prediction  -> Handled by common neighbors / overlap measures
+      3. CLUSTERING           -> Handled by Spectral Clustering (TODAY'S TOPIC)
+
+    CLUSTERING DEFINITION:
+      Partition the vertex set V into "communities" -- groups of nodes that are:
+        - Densely connected INTERNALLY
+        - Loosely connected to the REST of the graph
+      No explicit labels; this is UNSUPERVISED.
+
+    THE SPECTRAL IDEA:
+      Combinatorial quantities (connected components, cuts, cluster structure)
+      are hard to work with directly.
+
+      TRICK: Attach a MATRIX to the graph G.
+      Then use LINEAR ALGEBRA (eigenvalues, eigenvectors) to extract information.
+
+      Tools available after this trick:
+        - Spectral Theorem
+        - Rayleigh-Ritz theorem
+        - Polynomial-time eigensolvers (Lanczos, numpy.linalg.eigh)
+
+    TWO NATURAL MATRICES:
+      Adjacency Matrix A  in {0,1}^(n x n)  --> Used in PageRank, eigenvector centrality
+      Laplacian     L = D - A               --> Used for CLUSTER STRUCTURE (our focus)
+
+
+
+60. SECTION 3: THE UNNORMALIZED LAPLACIAN -- PROPERTIES
+
+    DEFINITION:
+      L := D - A
+
+      Where:
+        D = diag(d_1, d_2, ..., d_n)  (degree matrix)
+        A = adjacency matrix
+
+    CONCRETE ENTRIES:
+      L[u,u] = d_u          (diagonal = degree)
+      L[u,w] = -1           if {u,w} in E
+      L[u,w] =  0           if {u,w} not in E (and u =/= w)
+
+    EXAMPLE: BOWTIE GRAPH (vertices 1,2,3,4,5 with vertex 3 as hub)
+      Degrees: d_1=2, d_2=2, d_3=4, d_4=2, d_5=2
+
+      L = [ 2  -1  -1   0   0 ]
+          [-1   2  -1   0   0 ]
+          [-1  -1   4  -1  -1 ]
+          [ 0   0  -1   2  -1 ]
+          [ 0   0  -1  -1   2 ]
+
+      Every row sums to 0. L is symmetric.
+
+    FIVE KEY PROPERTIES (KNOW ALL FIVE):
+
+      (i)  SYMMETRY: L^T = L
+           Proof: D and A are each symmetric, so D-A is symmetric.
+
+      (ii) DIRICHLET ENERGY IDENTITY (THE MOST IMPORTANT FORMULA):
+           For every x in R^n:
+
+           x^T L x = (1/2) * sum_{(u,v) in VxV} A[u,v]*(x_u - x_v)^2
+                   = sum_{(u,v) in E} (x_u - x_v)^2
+
+           Interpretation: x^T L x is the TOTAL SQUARED EDGE VARIATION of
+           the signal x: V -> R. This is called the DIRICHLET ENERGY.
+
+      (iii) POSITIVE SEMI-DEFINITE (PSD):
+            x^T L x >= 0 for all x in R^n
+            Proof: Each term (x_u - x_v)^2 in (ii) is non-negative.
+
+      (iv) EIGENVALUES are real and non-negative:
+           Order them as: 0 = lambda_1 <= lambda_2 <= ... <= lambda_n
+           (Proof: L is real symmetric by (i), PSD by (iii))
+
+      (v)  L*1 = 0  (the all-ones vector 1 is always an eigenvector with eigenvalue 0)
+           Proof: For each vertex u:
+             (L*1)_u = sum_v L[u,v]*1 = d_u + sum_{v~u}(-1) = d_u - d_u = 0
+
+61. SECTION 11: IMPORTANT FORMULAS CHEAT SHEET
+
+    L = D - A                         (definition, unnormalized)
+    L = B^T B                         (factorization)
+    x^T L x = sum_{(u,v) in E} (x_u - x_v)^2   (Dirichlet energy)
+    L * 1 = 0                         (all-ones vector is in ker(L))
+    dim ker(L) = K                    (number of connected components)
+    lambda_2 > 0  <=>  G connected    (Fiedler criterion)
+
+    L_sym = D^{-1/2} L D^{-1/2}      (symmetric normalized)
+    L_rw  = D^{-1} L                 (random-walk normalized)
+
+    RatioCut(A_1,...,A_K) = sum_k [cut_k / |A_k|]
+    NCut(A_1,...,A_K)     = sum_k [cut_k / vol(A_k)]
+
+    Spectral relaxation lower bound: |V| * lambda_2 <= |V| * min RatioCut
+
+62. WORKED EXAMPLE -- RatioCut vs. Naive Cut
+
+                   (1)=================(4)
+                  / |                   | \
+                 /  |                   |  \
+               (2)  |                   |  (5)
+                 \  |                   |  /
+                  \ |                   | /
+                   (3)=================(6)
+
+    SETUP (Two Triangles Joined by Two Bridges):
+      V = {1, 2, 3, 4, 5, 6}
+      E = { {1,2}, {1,3}, {1,4}, {2,3}, {3,6}, {4,5}, {4,6}, {5,6} }
+
+      Structure:
+        Triangle 1: vertices {1,2,3} (edges {1,2},{1,3},{2,3})
+        Triangle 2: vertices {4,5,6} (edges {4,5},{4,6},{5,6})
+        Bridge edges: {1,4} and {3,6}
+
+      Degrees: (d_1, d_2, d_3, d_4, d_5, d_6) = (3, 2, 3, 3, 2, 3)
+
+      Intuitively correct partition: {1,2,3} | {4,5,6}
+
+    COMPARISON TABLE (memorize this!):
+
+      Partition              | |A| | cut | RatioCut
+      -----------------------+-----+-----+---------------------------
+      {1,2,3} | {4,5,6}      |  3  |  2  | 2/3 + 2/3 = 4/3 ≈ 1.33
+      (natural split)        |     |     |
+      -----------------------+-----+-----+---------------------------
+      {2} | {1,3,4,5,6}      |  1  |  2  | 2/1 + 2/5 = 2.40
+      (singleton)            |     |     |
+      -----------------------+-----+-----+---------------------------
+      {1} | {2,3,4,5,6}      |  1  |  3  | 3/1 + 3/5 = 3.60
+      (another singleton)    |     |     |
+
+    KEY OBSERVATION:
+      The singleton {2} has the SAME raw cut (2) as the natural partition!
+      But its RatioCut (2.40) is much worse than the natural split (1.33).
+      This is the imbalance penalty WORKING CORRECTLY.
+
+    CONCLUSION:
+      Brute force confirms {1,2,3}|{4,5,6} is the global RatioCut minimizer.
+      But for n=50, there are over 5*10^14 bipartitions -- we need a tractable method.
+
+63. SECTION 9: WORKED EXAMPLE -- THE SPECTRAL METHOD (FULL SOLUTION)
+
+    Using the same two-triangles-two-bridges graph.
+
+
+                   (1)=================(4)
+                  / |                   | \
+                 /  |                   |  \
+               (2)  |                   |  (5)
+                 \  |                   |  /
+                  \ |                   | /
+                   (3)=================(6)
+
+    --- STEP 1: BUILD L ---
+        Degrees: (3, 2, 3, 3, 2, 3)
+
+        L = [  3  -1  -1  -1   0   0 ]
+            [ -1   2  -1   0   0   0 ]
+            [ -1  -1   3   0   0  -1 ]
+            [ -1   0   0   3  -1  -1 ]
+            [  0   0   0  -1   2  -1 ]
+            [  0   0  -1  -1  -1   3 ]
+
+        Checks:
+          - Symmetric? YES
+          - Every row sums to 0? YES
+          - Diagonal entries = degrees? YES
+          - Off-diagonal = -A[u,v]? YES
+
+    --- STEP 2: EIGENDECOMPOSITION ---
+        Spec(L) = {0, 1, 3, 3, 4, 5}
+
+          lambda_1 = 0   (multiplicity 1 --> G is CONNECTED)
+          lambda_2 = 1   (FIEDLER VALUE = algebraic connectivity)
+          lambda_3 = 3
+          lambda_4 = 3
+          lambda_5 = 4
+          lambda_6 = 5
+
+        Spectral gap: lambda_2 - lambda_1 = 1 - 0 = 1
+
+    --- STEP 3: FIEDLER VECTOR ---
+        Eigenvector for lambda_2 = 1 (rescaled so largest magnitude is +/-2, first entry positive):
+
+          a* = (1, 2, 1, -1, -2, -1)^T
+
+        VERIFICATION (check that L * a* = 1 * a* = a*):
+          Row 1: 3(1) + (-1)(2) + (-1)(1) + (-1)(-1) + 0(-2) + 0(-1)
+                 = 3 - 2 - 1 + 1 = 1 = a*_1  CORRECT
+
+          Row 2: (-1)(1) + 2(2) + (-1)(1) + 0(-1) + 0(-2) + 0(-1)
+                 = -1 + 4 - 1 = 2 = a*_2  CORRECT
+
+          (You can verify remaining rows similarly)
+
+        STRUCTURE ANALYSIS:
+          - Interior vertices 2 and 5 (connected only to same-triangle neighbors)
+            --> sit at EXTREMES: a*_2 = +2, a*_5 = -2
+          - Boundary vertices 1,3,4,6 (each has a bridge edge to opposite cluster)
+            --> sit CLOSER TO ZERO: a*_1=+1, a*_3=+1, a*_4=-1, a*_6=-1
+          - The Fiedler vector "SOFTENS" near the cut, most polarized at cluster cores
+
+    --- STEP 4: SIGN-BASED ROUNDING ---
+        Signs of a* = (1, 2, 1, -1, -2, -1)^T:
+          Vertex 1: +1  --> A
+          Vertex 2: +2  --> A
+          Vertex 3: +1  --> A
+          Vertex 4: -1  --> A_bar
+          Vertex 5: -2  --> A_bar
+          Vertex 6: -1  --> A_bar
+
+        SPECTRAL BIPARTITION:
+          A     = {1, 2, 3}
+          A_bar = {4, 5, 6}
+
+        cut(A, A_bar) = 2  (the two bridge edges {1,4} and {3,6})
+        RatioCut      = 2/3 + 2/3 = 4/3 ≈ 1.33
+
+        This MATCHES the brute-force optimum! The algorithm recovered the correct partition.
+
+    --- STEP 5: RELAXATION GAP ---
+        Spectral lower bound:  |V| * lambda_2 = 6 * 1 = 6
+        True discrete optimum: |V| * min RatioCut = 6 * (4/3) = 8
+
+        Relative gap = (8-6)/8 = 25%
+
+        The relaxation is NOT TIGHT (25% gap), but the ROUNDED solution still finds
+        the true optimum. This is the TYPICAL SITUATION for spectral methods.
+
+
+
+MISTAKE 1: Confusing eigenvalue SMALLEST with PageRank (which uses LARGEST).
+  Remember: Laplacian uses SMALLEST non-trivial eigenvalue lambda_2.
+  PageRank uses LARGEST eigenvalue of the transition matrix.
+
+MISTAKE 2: Forgetting that the orientation of B doesn't matter.
+  B^T B = L regardless of how you orient the edges.
+
+MISTAKE 3: Confusing ker(L) = K components with saying "L has K eigenvalues = 0".
+  Both statements are equivalent -- the MULTIPLICITY of eigenvalue 0 is K.
+
+MISTAKE 4: In the RatioCut formula, forgetting the denominator applies PER CLUSTER.
+  RatioCut = sum over ALL k of [cut_k / |A_k|], not [total cut / |V|].
+
+MISTAKE 5: Thinking the spectral bipartition algorithm finds the EXACT minimum.
+  It finds an APPROXIMATE minimum. It is a heuristic with no multiplicative guarantee.
+  The lower bound is |V|*lambda_2, not the true optimum.
+
+MISTAKE 6: Forgetting WHY we need a perp 1 in the relaxation.
+  Without it, the minimizer is the trivial constant (all vertices in same cluster).
+  The orthogonality constraint FORCES us to a non-trivial eigenvector.
+
+MISTAKE 7: Confusing L_sym and L_rw.
+  L_sym = D^{-1/2} L D^{-1/2}  (SYMMETRIC)
+  L_rw  = D^{-1} L              (NOT symmetric in general)
+  They are similar matrices and share the same eigenvalues.
+
